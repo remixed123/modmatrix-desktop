@@ -1,0 +1,87 @@
+{
+  "_comment": "Pinned runtime parts, checked by SHA-256 before use. scripts/build_*.sh/.ps1 read this file.",
+  "framework": {
+    "repo": "kiteless/perkons-re",
+    "ref": "main",
+    "python_requirements": {
+      "capstone": "5.0.9",
+      "unicorn": "2.1.4"
+    }
+  },
+  "python": {
+    "version": "3.12.16",
+    "release": "20261026",
+    "wheels": {
+      "macos-arm64": [
+        "capstone==5.0.9 --hash=sha256:fc269c5082e17d7f9f265cd6980e2fdc6ab572df913951d76db0357e06b8001d",
+        "unicorn==2.1.4 --hash=sha256:d6c93e0f60328d8f4a1792af3f834137a28050fcc2305f2ec01efe8558a9844e"
+      ],
+      "windows-x64": [
+        "capstone==5.0.9 --hash=sha256:732cedbbb56d42e723f14d7af6387f1454194a820b4b96b56d1e53f865ef85d0",
+        "unicorn==2.1.4 --hash=sha256:d7107500c64ce5c168fbff6bef9485b5db1350050036f4cea568650cf8bdbdf5"
+      ]
+    },
+    "platforms": {
+      "macos-arm64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-aarch64-apple-darwin-install_only_stripped.tar.gz",
+        "sha256": "353d5f1b4fd2715e7053f12f068435d5bbad16b91e057006b5d01e0925709a7e"
+      },
+      "windows-x64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+        "sha256": "1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149"
+      }
+    }
+  },
+  "toolchain": {
+    "name": "Arm GNU Toolchain",
+    "version": "15.3.rel2",
+    "gcc": "15.3.1",
+    "source": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-src-snapshot-15.3.rel2.tar.xz",
+    "source_sha256": "59bf354b14755172eb238511542c599a6ec3540a19164b8dfe1accbe084c8089",
+    "platforms": {
+      "macos-arm64": {
+        "url": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-darwin-arm64-arm-none-eabi.tar.xz",
+        "sha256": "f011e4832046155f06408dda6b252b21b139a8159c8529802227371f06656c60"
+      },
+      "windows-x64": {
+        "url": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-mingw-w64-x86_64-arm-none-eabi.zip",
+        "sha256": "0daff4141d4f62ad1e9794ca8bd430ef730f07fd78f6d71d2ffdffc21db8cb9e"
+      }
+    },
+    "_keep_comment": "What the framework's build runs (measured with gcc -v -H on a full build), from the toolchain root.",
+    "keep": [
+      "bin/arm-none-eabi-gcc",
+      "bin/arm-none-eabi-objcopy",
+      "bin/arm-none-eabi-nm",
+      "bin/arm-none-eabi-objdump",
+      "arm-none-eabi/bin/as",
+      "arm-none-eabi/bin/ld",
+      "libexec/gcc/arm-none-eabi/15.3.1/cc1",
+      "libexec/gcc/arm-none-eabi/15.3.1/collect2",
+      "libexec/gcc/arm-none-eabi/15.3.1/lto-wrapper",
+      "libexec/gcc/arm-none-eabi/15.3.1/liblto_plugin.so",
+      "lib/gcc/arm-none-eabi/15.3.1/include",
+      "lib/gcc/arm-none-eabi/15.3.1/include-fixed",
+      "share/doc/arm-none-eabi/readme.txt"
+    ],
+    "keep_windows": [
+      "bin/arm-none-eabi-gcc.exe",
+      "bin/arm-none-eabi-objcopy.exe",
+      "bin/arm-none-eabi-nm.exe",
+      "bin/arm-none-eabi-objdump.exe",
+      "arm-none-eabi/bin/as.exe",
+      "arm-none-eabi/bin/ld.exe",
+      "libexec/gcc/arm-none-eabi/15.3.1/cc1.exe",
+      "libexec/gcc/arm-none-eabi/15.3.1/collect2.exe",
+      "libexec/gcc/arm-none-eabi/15.3.1/lto-wrapper.exe",
+      "libexec/gcc/arm-none-eabi/15.3.1/liblto_plugin.dll",
+      "lib/gcc/arm-none-eabi/15.3.1/include",
+      "lib/gcc/arm-none-eabi/15.3.1/include-fixed",
+      "share/doc/arm-none-eabi/readme.txt"
+    ]
+  },
+  "launcher": {
+    "pyinstaller": "6.22.3",
+    "pywebview": "6.2.1"
+  }
+}
