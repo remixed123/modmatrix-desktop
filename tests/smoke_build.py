@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'launcher'))
@@ -98,9 +99,10 @@ def main():
     check_runtime(runtime, data)
     args = argparse.Namespace(framework=a.framework, repos_url=a.repos_url)
     t0 = time.time()
-    server, url, notice = L.prepare_and_start(args, runtime, data, log, log)
+    server, page, notice = L.prepare_and_start(args, runtime, data, log, log)
+    url = server.url                               # the Mod Matrix itself; `page` is the app's page
     try:
-        print(f'server at {url} after {time.time() - t0:.1f}s; notice: {notice}')
+        print(f'server at {url}, app page at {page} after {time.time() - t0:.1f}s; notice: {notice}')
         st = api(url, '/api/status')
         assert st['gcc'], st
         repos = api(url, '/api/repos')
@@ -109,6 +111,12 @@ def main():
         mods = api(url, '/api/mods?repos=' + ','.join(r['repo'] for r in repos['repos']))
         offered = {o['id'] for o in mods['options']}
         assert set(a.options + a.voices) <= offered, sorted(set(a.options + a.voices) - offered)
+        guides = api(page, '/guides/mods')['mods']
+        print('guides:', len(guides), 'mods,', sum(1 for g in guides if g['readme']), 'with a README')
+        assert len(guides) == len(mods['options']) and all(g['readme'] for g in guides), guides
+        first = guides[0]
+        q = urllib.parse.urlencode({'repo': first['repo'], 'ref': first['ref'], 'path': first['readme']})
+        assert api(page, f'/guides/readme?{q}')['text'].strip(), first
         if not a.image:
             print('no image: stopping before the build')
             return
