@@ -432,6 +432,34 @@ def prepare_and_start(args, runtime, data, log, status):
     return server, server.start(), notice
 
 
+def unblock_bundle(log):
+    """Windows: take the "downloaded from the internet" mark (the Zone.Identifier stream) off
+    the app's own DLLs. Explorer's Extract All copies it from the zip onto every file, and
+    .NET won't load a marked DLL: pythonnet's, which the window needs."""
+    if not (WINDOWS and getattr(sys, 'frozen', False)) or os.environ.get('MODMATRIX_NO_UNBLOCK'):
+        return
+    n = 0
+    for folder, _, files in os.walk(getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))):
+        for name in files:
+            if name.lower().endswith('.dll'):
+                try:
+                    os.remove(os.path.join(folder, name) + ':Zone.Identifier')
+                    n += 1
+                except OSError:
+                    pass                     # not marked
+    if n:
+        log(f'removed the downloaded-from-the-internet mark from {n} DLLs')
+
+
+def window_backend():
+    """pywebview with what its window needs loaded (on Windows: .NET via pythonnet), so a
+    failure shows here, before anything starts, and the browser can be used instead."""
+    import webview
+    if WINDOWS:
+        import clr  # noqa: F401
+    return webview
+
+
 def run_window(args, runtime, data, log):
     import webview
     webview.settings['ALLOW_DOWNLOADS'] = True
@@ -484,6 +512,7 @@ def main(argv=None):
     ap.add_argument('--framework', help='a local perkons-re folder instead of the download (testing)')
     ap.add_argument('--repos-url', help='a mod repo list instead of the official one (testing)')
     ap.add_argument('--runtime', help='the runtime folder (when run from source)')
+    ap.add_argument('--selftest', action='store_true', help='check the window can load, then exit (CI)')
     # macOS may pass -psn_... to an app started from Finder on old systems
     args, _ = ap.parse_known_args(argv)
     data = data_dir()
@@ -495,12 +524,18 @@ def main(argv=None):
     except LaunchError as e:
         log(str(e))
         raise SystemExit(str(e))
-    if not args.browser:
+    unblock_bundle(log)
+    if not args.browser or args.selftest:
         try:
-            import webview  # noqa: F401
+            window_backend()
         except Exception as e:
-            log(f'no window ({e}); using the browser')
+            log(f'no window ({type(e).__name__}: {e}); using the browser')
+            if args.selftest:
+                return 1
             args.browser = True
+    if args.selftest:
+        log('selftest: the window can load')
+        return 0
     try:
         (run_browser if args.browser else run_window)(args, runtime, data, log)
     except LaunchError as e:

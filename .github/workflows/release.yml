@@ -69,6 +69,21 @@ jobs:
       - name: Launcher tests
         shell: pwsh
         run: build/venv/Scripts/python.exe -m unittest discover -s tests
+      - name: Window check (the app's DLLs marked as downloaded, as Explorer's Extract All does)
+        shell: pwsh
+        run: |
+          $app = "dist\Perkons Mod Matrix"
+          $mark = { Get-ChildItem $app -Recurse -Filter *.dll | ForEach-Object { Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3" } }
+          & $mark
+          $env:MODMATRIX_NO_UNBLOCK = '1'
+          $p = Start-Process "$app\Perkons Mod Matrix.exe" -ArgumentList '--selftest' -Wait -PassThru
+          Write-Host "marked, not unblocked: exit $($p.ExitCode) (expected 1)"
+          Remove-Item Env:MODMATRIX_NO_UNBLOCK
+          & $mark
+          $p = Start-Process "$app\Perkons Mod Matrix.exe" -ArgumentList '--selftest' -Wait -PassThru
+          Write-Host "marked, unblocked by the app: exit $($p.ExitCode)"
+          Get-Content "$env:LOCALAPPDATA\PerkonsModMatrix\launcher.log" -Tail 8
+          if ($p.ExitCode -ne 0) { throw 'the window cannot load' }
       - name: Runtime check (toolchain, emulator, Mod Matrix server and both repos; no firmware)
         shell: pwsh
         run: build/runtime/python/python.exe -I tests/smoke_build.py --runtime build/runtime
