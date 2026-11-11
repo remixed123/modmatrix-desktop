@@ -119,7 +119,6 @@ foreach ($sp in @((Join-Path $P 'Lib\site-packages'), (Join-Path $Venv 'Lib\site
 }
 
 Say "zip"
-$Version = [regex]::Match((Get-Content launcher\modmatrix_launcher.py -Raw), "APP_VERSION = '([^']+)'").Groups[1].Value
-$Zip = Join-Path $Dist "PerkonsModMatrix-$Version-windows-x64.zip"
+$Zip = Join-Path $Dist "ModMatrixDesktop-Windows.zip"   # no version: README links to releases/latest/download/
 Compress-Archive -Path $App -DestinationPath $Zip -CompressionLevel Optimal
 Write-Host "-> $Zip"

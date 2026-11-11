@@ -139,7 +139,7 @@ rm -rf "$STAGE" && mkdir -p "$STAGE"
 cp -Rp "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 VERSION=$(/usr/bin/python3 -c "import re;print(re.search(r\"APP_VERSION = '([^']+)'\", open('launcher/modmatrix_launcher.py').read()).group(1))")
-DMG="$DIST/PerkonsModMatrix-$VERSION-macos-arm64.dmg"
+DMG="$DIST/ModMatrixDesktop-macOS.dmg"   # no version: README links to releases/latest/download/
 hdiutil create -quiet -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format ULMO "$DMG"   # LZMA: ~40% smaller than UDZO
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   codesign --force --timestamp -s "$SIGN_IDENTITY" "$DMG"

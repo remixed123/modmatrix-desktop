@@ -1,27 +1,83 @@
 # Mod Matrix Desktop
 
-The [Pērkons HD-01 Mod Matrix](https://github.com/kiteless/perkons-re) as a desktop app:
-download, open, drop in your own official firmware image, tick mods, build, download the
-modded image. No Git, Python, compiler or terminal needed.
+The [Mod Matrix](https://github.com/kiteless/perkons-re) for the Erica Synths Pērkons HD-01,
+as a desktop app for Mac and Windows. Load your official firmware, tick the mods you want,
+and get a modded firmware file to flash. No Git, Python, compiler or terminal needed.
 
-The Mod Matrix and perkons-re are by [kiteless](https://github.com/kiteless). This repo only
-packages them as a desktop app (packaged by [remixed123](https://github.com/remixed123)).
-
-## Download
-
-From [Releases](https://github.com/remixed123/modmatrix-desktop/releases):
-
-* macOS (Apple Silicon, macOS 11 or later): the `.dmg`. Open it and drag the app to
-  Applications. Signed and notarised.
-* Windows (x64): the `.zip`. Unzip it and run `Perkons Mod Matrix.exe`. Not signed: if
-  Windows warns, choose "More info", then "Run anyway".
-
-The first start needs an internet connection (it downloads the Mod Matrix and the mods).
+**The Mod Matrix, perkons-re and the main mods are by [kiteless](https://github.com/kiteless).**
+This app only packages them so they run without installing anything. It downloads the
+newest Mod Matrix each time it starts, so you always get kiteless's latest version.
 
 > Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is flashed
 > entirely at your own risk. The app contains no Erica Synths firmware: you supply your own.
 
-## How it works
+## Download
+
+* **[Download for Mac](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-macOS.dmg)**: Apple Silicon (M1 or later),
+  macOS 11 or later. Intel Macs are not supported.
+* **[Download for Windows](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-Windows.zip)**: Windows 10 or 11, 64-bit.
+
+Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/releases).
+
+## Install
+
+**Mac**
+
+1. Open `ModMatrixDesktop-macOS.dmg` and drag **Perkons Mod Matrix** to **Applications**.
+2. Open it from Applications. The first time, macOS asks whether to open an app downloaded
+   from the internet: choose **Open**.
+
+**Windows**
+
+1. Right-click `ModMatrixDesktop-Windows.zip` and choose **Extract All**. Keep the extracted
+   folder together: the app needs the files next to it.
+2. Open the folder and run **Perkons Mod Matrix.exe**. The app isn't signed, so Windows may
+   show "Windows protected your PC": click **More info**, then **Run anyway**.
+
+The first start needs an internet connection: the app downloads the Mod Matrix and the
+mods. After that it also starts offline, with the last version it downloaded.
+
+## Use
+
+You need the official Pērkons firmware **1.3.0** from Erica Synths
+(`perkons_v1.3.0-0-force.img`) and the Pērkons's SD card.
+
+1. **Load your firmware:** drop `perkons_v1.3.0-0-force.img` on the start screen, or click
+   to choose it. Only an unmodified official image is accepted.
+2. **Choose mod repos:** the mod collections to pick from. Only tick repos you trust. Press
+   **CONTINUE**.
+3. **Choose mods:** tick mods on the **MODS** tab; add voice engines on the **ENGINES** tab.
+4. Press **PATCH IT** and wait about a minute.
+5. Press **DOWNLOAD** and save the new `perkons_v1.3.0-0-force.img`.
+6. **Flash it:** copy it to the root of the SD card (replace the old one), put the card in
+   the Pērkons, hold all four voice trigger keys while powering on, and let go when the
+   step LEDs start lighting.
+
+kiteless's guide has the details: [building](https://github.com/kiteless/perkons-re#4-build-your-firmware),
+[flashing](https://github.com/kiteless/perkons-re#5-flash-it), [using the mods](https://github.com/kiteless/perkons-re#6-use-the-mods) and
+[going back to the official firmware](https://github.com/kiteless/perkons-re#going-back-to-the-official-firmware).
+
+> A firmware file you build contains Erica Synths' firmware: it's for your own Pērkons,
+> please don't share it.
+
+## Help
+
+* **Something went wrong:** the app writes a log, `launcher.log`, in its data folder:
+  * Mac: `~/Library/Application Support/Perkons Mod Matrix/`
+  * Windows: `%LOCALAPPDATA%\PerkonsModMatrix\`
+* **Start afresh:** quit the app and delete that folder.
+* **Uninstall:** delete the app (Mac) or the extracted folder (Windows), and the data folder.
+* Problems with the app itself: [open an issue](https://github.com/remixed123/modmatrix-desktop/issues).
+  Problems with a mod: its repo.
+
+---
+
+## Developer info
+
+How the app works and how to build it, for those interested. You don't need any of this to
+use the app.
+
+### How it works
 
 The app is a runtime and a small launcher. It holds:
 
@@ -42,17 +98,19 @@ Everything downloaded or built goes in the data folder, never in the app:
 * macOS: `~/Library/Application Support/Perkons Mod Matrix/`
 * Windows: `%LOCALAPPDATA%\PerkonsModMatrix\`
 
-with `framework/` (perkons-re), `cache/` (mods, measurements), `tmp/` (builds) and
-`launcher.log`. Deleting it resets the app.
+with `framework/` (perkons-re), `cache/` (mods, measurements) and `launcher.log`. Deleting
+it resets the app. Builds run in a temporary folder whose path has no spaces (perkons-re's
+linker-map parsing needs that): `~/Library/Caches/PerkonsModMatrix/tmp` on macOS, the data
+folder's short (8.3) path on Windows.
 
-## Building
+### Building
 
 Everything the build downloads is pinned, with its SHA-256, in `runtime.lock.json`.
 
 macOS (Apple Silicon):
 
 ```sh
-scripts/build_macos.sh                         # -> dist/PerkonsModMatrix-<version>-macos-arm64.dmg
+scripts/build_macos.sh                         # -> dist/ModMatrixDesktop-macOS.dmg
 SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary scripts/build_macos.sh
 ```
 
@@ -64,7 +122,7 @@ notarytool keychain profile, made once with
 Windows (x64, unsigned for now):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1   # -> dist\PerkonsModMatrix-<version>-windows-x64.zip
+powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1   # -> dist\ModMatrixDesktop-Windows.zip
 ```
 
 GitHub Actions (`.github/workflows/release.yml`) builds both; a `v*` tag makes a draft
@@ -76,7 +134,7 @@ Launcher tests: `build/venv/bin/python -m unittest discover -s tests`.
 Options of the launcher (for development): `--browser` (no window), `--framework DIR`
 (a local perkons-re), `--repos-url URL` (another mod repo list), `--runtime DIR`.
 
-## Licences
+### Licences
 
 The launcher and build scripts: MIT (`LICENSE`). Everything bundled: see `licenses/THIRD_PARTY.md`: the Arm GNU Toolchain is GPL-3.0 (its source is attached to
 each release), unicorn is GPL-2.0, perkons-re is MIT, Python is under the PSF licence.
