@@ -27,6 +27,7 @@ import sys
 import threading
 import time
 import traceback
+import urllib.error
 import urllib.request
 import webbrowser
 import zipfile
@@ -36,6 +37,8 @@ APP_VERSION = '0.1.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
+# git's own ref list: no API rate limit (60 an hour per address, shared on some networks)
+REFS_URL = f'https://github.com/{FRAMEWORK_REPO}.git/info/refs?service=git-upload-pack'
 ZIP_URL = 'https://codeload.github.com/' + FRAMEWORK_REPO + '/zip/{sha}'
 TIMEOUT = 20
 SERVER_START_TIMEOUT = 120
@@ -196,7 +199,14 @@ class Frameworks:
         return (sha, path) if os.path.exists(os.path.join(path, 'tools', 'modmatrix.py')) else None
 
     def latest_sha(self):
-        sha = FETCH(COMMIT_URL, accept='application/vnd.github.sha').decode().strip()
+        """The commit main is at: from the API, or (refused, e.g. its rate limit) git's ref list."""
+        try:
+            sha = FETCH(COMMIT_URL, accept='application/vnd.github.sha').decode().strip()
+        except urllib.error.HTTPError as e:
+            self.log(f'GitHub API: {e}; asking git instead')
+            refs = FETCH(REFS_URL).decode('ascii', 'replace')
+            m = re.search(r'([0-9a-f]{40}) refs/heads/' + re.escape(FRAMEWORK_REF) + r'\b', refs)
+            sha = m.group(1) if m else refs[:80]
         if not re.fullmatch(r'[0-9a-f]{40}', sha):
             raise LaunchError(f'unexpected answer from GitHub for {FRAMEWORK_REPO}: {sha[:80]!r}')
         return sha

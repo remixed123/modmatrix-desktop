@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import urllib.error
 import zipfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'launcher'))
@@ -31,14 +32,19 @@ def framework_zip(sha, files=None):
 
 class FakeGitHub:
     def __init__(self):
-        self.sha, self.zips, self.down, self.log = SHA1, {}, False, []
+        self.sha, self.zips, self.down, self.log, self.api_limited = SHA1, {}, False, [], False
 
     def __call__(self, url, accept=None):
         self.log.append(url)
         if self.down:
             raise OSError('network down')
         if url == L.COMMIT_URL:
+            if self.api_limited:
+                raise urllib.error.HTTPError(url, 403, 'rate limit exceeded', {}, None)
             return self.sha.encode()
+        if url == L.REFS_URL:
+            return (f'001e# service=git-upload-pack\n0000015a{"f" * 40} HEAD\0multi_ack symref=HEAD:refs/heads/main\n'
+                    f'003d{self.sha} refs/heads/main\n003d{"e" * 40} refs/heads/mainline\n0000').encode()
         for sha, data in self.zips.items():
             if url == L.ZIP_URL.format(sha=sha):
                 return data
@@ -82,6 +88,12 @@ class TestFrameworks(unittest.TestCase):
         self.fw.prepare(RUNTIME)
         kept = sorted(d for d in os.listdir(os.path.join(self.data, 'framework')) if len(d) == 40)
         self.assertEqual(kept, [SHA2, sha3])
+
+    def test_api_rate_limit_asks_git(self):
+        self.gh.api_limited = True
+        path, notice = self.fw.prepare(RUNTIME)
+        self.assertTrue(path.endswith(SHA1))
+        self.assertIsNone(notice)
 
     def test_offline_uses_the_last_one(self):
         self.fw.prepare(RUNTIME)
