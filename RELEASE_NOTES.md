@@ -1,3 +1,8 @@
+**New in 0.2.0: user guides.** A **USER GUIDES** tab next to the Mod Matrix shows every mod's
+and engine's guide, from all mod repos, without loading any firmware: a list on the left
+(A to Z, search, MODS / ENGINES filter), the guide on the right. Guides you've opened are kept
+for reading offline.
+
 The Pērkons HD-01 Mod Matrix by kiteless, packaged as a desktop app by remixed123: open
 it, drop in your own official firmware image, tick mods, build, download the modded image.
 No Git, Python, compiler or terminal needed. The first start needs an internet connection.

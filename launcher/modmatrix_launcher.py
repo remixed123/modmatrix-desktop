@@ -33,7 +33,7 @@ import webbrowser
 import zipfile
 
 APP_NAME = 'Perkons Mod Matrix'
-APP_VERSION = '0.1.0'
+APP_VERSION = '0.2.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
