@@ -49,7 +49,7 @@ P="$RT/python"
 /usr/bin/python3 -c "import json; print('\n'.join(json.load(open('$LOCK'))['python']['wheels']['$PLATFORM']))" > "$BUILD/requirements-runtime.txt"
 "$P/bin/python3" -m pip install -q --disable-pip-version-check --no-compile --only-binary :all: \
   --require-hashes -r "$BUILD/requirements-runtime.txt"
-"$P/bin/python3" -I -c "import capstone, unicorn; print('capstone', capstone.__version__, 'unicorn', unicorn.__version__)"
+"$P/bin/python3" -I -c "import capstone, unicorn, importlib.metadata as m; print('capstone', m.version('capstone'), 'unicorn', m.version('unicorn'))"
 
 # prune what the Mod Matrix never uses (Tk, IDLE, pip, headers, tests)
 "$P/bin/python3" -m pip uninstall -q -y pip

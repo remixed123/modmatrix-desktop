@@ -56,7 +56,7 @@ $PyExe = Join-Path $P 'python.exe'
 $req = Join-Path $Build 'requirements-runtime.txt'
 $Lock.python.wheels.$Platform | Set-Content -Encoding ascii $req
 Run $PyExe -m pip install -q --disable-pip-version-check --no-compile --only-binary :all: --require-hashes -r $req
-Run $PyExe -I -c "import capstone, unicorn; print('capstone', capstone.__version__, 'unicorn', unicorn.__version__)"
+Run $PyExe -I -c "import capstone, unicorn, importlib.metadata as m; print('capstone', m.version('capstone'), 'unicorn', m.version('unicorn'))"
 
 Run $PyExe -m pip uninstall -q -y pip
 foreach ($d in 'include', 'tcl', 'Scripts', 'Lib\test', 'Lib\idlelib', 'Lib\tkinter', 'Lib\turtledemo',
@@ -72,9 +72,9 @@ Expand-Archive -Path $TcZip -DestinationPath (Join-Path $Build 'tc')
 $TcSrc = Join-Path $Build 'tc'
 $top = Get-ChildItem $TcSrc -Directory
 if ($top.Count -eq 1 -and -not (Test-Path (Join-Path $TcSrc 'bin'))) { $TcSrc = $top[0].FullName }
-foreach ($p in $Lock.toolchain.keep_windows) {
-  $src = Join-Path $TcSrc $p
-  $dst = Join-Path (Join-Path $RT 'toolchain') $p
+foreach ($rel in $Lock.toolchain.keep_windows) {   # not $p: PowerShell names ignore case ($P)
+  $src = Join-Path $TcSrc $rel
+  $dst = Join-Path (Join-Path $RT 'toolchain') $rel
   New-Item -ItemType Directory -Force (Split-Path -Parent $dst) | Out-Null
   Copy-Item -Recurse -Force $src $dst
 }
