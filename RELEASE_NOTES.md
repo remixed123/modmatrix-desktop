@@ -1,6 +1,6 @@
-Perkons Mod Matrix as a desktop app: open it, drop in your own official Pērkons HD-01
-firmware image, tick mods, build, download the modded image. No Git, Python, compiler or
-terminal needed. The first start needs an internet connection.
+The Pērkons HD-01 Mod Matrix by kiteless, packaged as a desktop app by remixed123: open
+it, drop in your own official firmware image, tick mods, build, download the modded image.
+No Git, Python, compiler or terminal needed. The first start needs an internet connection.
 
 * macOS (Apple Silicon): open the `.dmg` and drag the app to Applications.
 * Windows (x64): unzip and run `Perkons Mod Matrix.exe`. This build is not signed yet, so

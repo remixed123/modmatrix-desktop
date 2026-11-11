@@ -149,7 +149,12 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(env['PATH'].split(os.pathsep)[0], R.toolchain_bin)
         self.assertEqual(env['ARM_GCC_PREFIX'], os.path.join(R.toolchain_bin, 'arm-none-eabi-'))
         self.assertEqual(env['PERKONS_CACHE'], os.path.join('/data', 'cache'))
+        self.assertEqual(env['TMPDIR'], L.work_dir('/data'))
         self.assertEqual(L.server_env(R, '/data', 'file:///r.json')['PERKONS_REPOS_URL'], 'file:///r.json')
+
+    @unittest.skipIf(L.WINDOWS, 'on Windows: the short path, if 8.3 names are on')
+    def test_builds_run_in_a_folder_without_spaces(self):
+        self.assertNotIn(' ', L.work_dir(os.path.join(tempfile.gettempdir(), 'Application Support', 'X')))
 
     def test_cache_link(self):
         d = tempfile.mkdtemp()

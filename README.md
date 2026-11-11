@@ -1,8 +1,22 @@
-# Perkons Mod Matrix (desktop)
+# Mod Matrix Desktop
 
 The [Pērkons HD-01 Mod Matrix](https://github.com/kiteless/perkons-re) as a desktop app:
 download, open, drop in your own official firmware image, tick mods, build, download the
 modded image. No Git, Python, compiler or terminal needed.
+
+The Mod Matrix and perkons-re are by [kiteless](https://github.com/kiteless). This repo only
+packages them as a desktop app (packaged by [remixed123](https://github.com/remixed123)).
+
+## Download
+
+From [Releases](https://github.com/remixed123/modmatrix-desktop/releases):
+
+* macOS (Apple Silicon, macOS 11 or later): the `.dmg`. Open it and drag the app to
+  Applications. Signed and notarised.
+* Windows (x64): the `.zip`. Unzip it and run `Perkons Mod Matrix.exe`. Not signed: if
+  Windows warns, choose "More info", then "Run anyway".
+
+The first start needs an internet connection (it downloads the Mod Matrix and the mods).
 
 > Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is flashed
 > entirely at your own risk. The app contains no Erica Synths firmware: you supply your own.
@@ -54,7 +68,8 @@ powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1   # -> dist\P
 ```
 
 GitHub Actions (`.github/workflows/release.yml`) builds both; a `v*` tag makes a draft
-release with both builds and the toolchain's GPL source.
+release with the builds and the toolchain's GPL source. The macOS build goes into a release
+only when it was signed and notarised (the secrets listed in the workflow).
 
 Launcher tests: `build/venv/bin/python -m unittest discover -s tests`.
 
@@ -63,5 +78,5 @@ Options of the launcher (for development): `--browser` (no window), `--framework
 
 ## Licences
 
-See `licenses/THIRD_PARTY.md`: the Arm GNU Toolchain is GPL-3.0 (its source is attached to
+The launcher and build scripts: MIT (`LICENSE`). Everything bundled: see `licenses/THIRD_PARTY.md`: the Arm GNU Toolchain is GPL-3.0 (its source is attached to
 each release), unicorn is GPL-2.0, perkons-re is MIT, Python is under the PSF licence.

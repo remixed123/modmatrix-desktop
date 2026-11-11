@@ -5,8 +5,8 @@ emulator check on, and the image downloaded.
 
     python tests/smoke_build.py <official .img> [--runtime DIR] [--framework DIR] [--keep]
 
-Uses a temporary data folder (--keep: print it and leave it). The repo list is the official
-one plus remixed123/perkons-re-mods.
+Uses a temporary data folder, its path with a space (--keep: print it and leave it). The repo
+list is the official one (--repos-url: another). Voice-map is the platform, in every build.
 """
 import argparse
 import hashlib
@@ -21,10 +21,9 @@ import urllib.request
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'launcher'))
 import modmatrix_launcher as L  # noqa: E402
 
-REPOS = {'repos': [{'repo': 'kiteless/perkons-re-mods', 'default': True},
-                   {'repo': 'remixed123/perkons-re-mods', 'default': True}]}
-OPTIONS = ['kiteless/perkons-re-mods:voice-map', 'kiteless/perkons-re-mods:fx-reverb']
-VOICES = ['remixed123/perkons-re-mods:voice-akords']
+OPTIONS = ['kiteless/perkons-re-mods:fx-reverb']
+VOICES = ['remixed123/perkons-re-mods:voice-akords', 'kiteless/perkons-re-mods:voice-zibens',
+          'kiteless/perkons-re-mods:voice-step-sampler']
 
 
 def api(url, path, body=None):
@@ -41,14 +40,14 @@ def main():
     ap.add_argument('--runtime')
     ap.add_argument('--framework')
     ap.add_argument('--keep', action='store_true')
+    ap.add_argument('--repos-url', help='a mod repo list instead of the official one')
+    ap.add_argument('--options', nargs='*', default=OPTIONS, help='mod ids (besides the voices)')
+    ap.add_argument('--voices', nargs='*', default=VOICES, help='voice ids, in slot order')
     a = ap.parse_args()
-    data = tempfile.mkdtemp(prefix='pmm-smoke-')
+    data = tempfile.mkdtemp(prefix='pmm smoke ')   # a space, as in Application Support
     log = L.Log(os.path.join(data, 'launcher.log'))
-    repos_file = os.path.join(data, 'repos.json')
-    with open(repos_file, 'w') as f:
-        json.dump(REPOS, f)
     runtime = L.Runtime(L.runtime_dir(a.runtime))
-    args = argparse.Namespace(framework=a.framework, repos_url='file://' + repos_file)
+    args = argparse.Namespace(framework=a.framework, repos_url=a.repos_url)
     t0 = time.time()
     server, url, notice = L.prepare_and_start(args, runtime, data, log, log)
     try:
@@ -67,7 +66,7 @@ def main():
             if mem.get('state') == 'done':
                 break
             time.sleep(0.5)
-        job = api(url, '/api/build', {'image': info['image'], 'options': OPTIONS + VOICES, 'voices': VOICES,
+        job = api(url, '/api/build', {'image': info['image'], 'options': a.options + a.voices, 'voices': a.voices,
                                       'checks': True})['job']
         since = 0
         while True:

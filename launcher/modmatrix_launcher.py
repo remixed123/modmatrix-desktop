@@ -42,6 +42,9 @@ SERVER_START_TIMEOUT = 120
 KEEP_FRAMEWORKS = 2
 WINDOWS = platform.system() == 'Windows'
 MACOS = platform.system() == 'Darwin'
+DEVELOPER = 'remixed123'
+TITLE = f'Mod Matrix Desktop, packaged by {DEVELOPER}'
+CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app packaged by {DEVELOPER} (github.com/{DEVELOPER}).'
 DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
               'flashed entirely at your own risk.')
 
@@ -60,6 +63,32 @@ def data_dir():
         return os.path.expanduser(f'~/Library/Application Support/{APP_NAME}')
     return os.path.join(os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share'),
                         'perkons-mod-matrix')
+
+
+def work_dir(data):
+    """The builds' temporary folder: a path without spaces. perkons-re before its fix reads
+    the linker map with paths that have no spaces, so a build under "Application Support"
+    recorded none of its linked RAM and failed the emulator's RAM watch."""
+    if MACOS:
+        d = os.path.expanduser('~/Library/Caches/PerkonsModMatrix/tmp')
+    else:
+        d = os.path.join(data, 'tmp')
+    if WINDOWS and ' ' in d:
+        os.makedirs(d, exist_ok=True)
+        d = _short_path(d)
+    return d
+
+
+def _short_path(path):
+    """The 8.3 form of an existing Windows path (no spaces), or the path itself."""
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(1024)
+        if ctypes.windll.kernel32.GetShortPathNameW(path, buf, len(buf)):
+            return buf.value
+    except Exception:
+        pass
+    return path
 
 
 def runtime_dir(override=None):
@@ -290,8 +319,7 @@ def server_env(runtime, data, repos_url=None):
     env['PATH'] = runtime.toolchain_bin + os.pathsep + env.get('PATH', '')
     env['ARM_GCC_PREFIX'] = os.path.join(runtime.toolchain_bin, 'arm-none-eabi-')
     env['PERKONS_CACHE'] = os.path.join(data, 'cache')
-    tmp = os.path.join(data, 'tmp')
-    env['TMPDIR'] = env['TEMP'] = env['TMP'] = tmp
+    env['TMPDIR'] = env['TEMP'] = env['TMP'] = work_dir(data)
     env['PYTHONUTF8'] = '1'
     if repos_url:
         env['PERKONS_REPOS_URL'] = repos_url
@@ -318,7 +346,7 @@ class Server:
         self.proc, self.url = None, None
 
     def start(self):
-        tmp = os.path.join(self.data, 'tmp')
+        tmp = work_dir(self.data)
         shutil.rmtree(tmp, ignore_errors=True)            # what a previous run left behind
         os.makedirs(tmp, exist_ok=True)
         link_cache(self.framework, os.path.join(self.data, 'cache'))
@@ -361,7 +389,7 @@ class Server:
         except subprocess.TimeoutExpired:
             p.kill()
             p.wait(5)
-        shutil.rmtree(os.path.join(self.data, 'tmp'), ignore_errors=True)
+        shutil.rmtree(work_dir(self.data), ignore_errors=True)
 
 
 # -- the window ---------------------------------------------------------------------------------
@@ -375,12 +403,12 @@ h1 {{ font-size: 18px; letter-spacing: .1em; margin: 0 0 16px; }}
 .msg {{ color: #fff; white-space: pre-wrap; }}
 .small {{ font-size: 12px; margin-top: 28px; opacity: .8; }}
 </style></head><body><main><h1>PERKONS MOD MATRIX</h1><div class="msg">{msg}</div>
-<div class="small">{small}</div></main></body></html>"""
+<div class="small">{small}</div><div class="small">{credit}</div></main></body></html>"""
 
 
 def page(msg, small=DISCLAIMER):
     import html
-    return PAGE.format(msg=html.escape(msg), small=html.escape(small))
+    return PAGE.format(msg=html.escape(msg), small=html.escape(small), credit=html.escape(CREDIT))
 
 
 def prepare_and_start(args, runtime, data, log, status):
@@ -402,7 +430,7 @@ def run_window(args, runtime, data, log):
         webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
     except Exception:
         pass
-    window = webview.create_window(APP_NAME, html=page('Starting...'), width=1180, height=860,
+    window = webview.create_window(TITLE, html=page('Starting...'), width=1180, height=860,
                                    min_size=(800, 600), background_color='#40318d')
     state = {'server': None}
 
@@ -451,7 +479,7 @@ def main(argv=None):
     data = data_dir()
     os.makedirs(data, exist_ok=True)
     log = Log(os.path.join(data, 'launcher.log'))
-    log(f'{APP_NAME} {APP_VERSION} on {platform.platform()}; data: {data}')
+    log(f'{TITLE} {APP_VERSION} on {platform.platform()}; data: {data}')
     try:
         runtime = Runtime(runtime_dir(args.runtime))
     except LaunchError as e:
