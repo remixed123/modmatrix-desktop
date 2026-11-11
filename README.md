@@ -2,7 +2,8 @@
 
 The [Mod Matrix](https://github.com/kiteless/perkons-re) for the Erica Synths Pērkons HD-01,
 as a desktop app for Mac and Windows. Load your official firmware, tick the mods you want,
-and get a modded firmware file to flash. No Git, Python, compiler or terminal needed.
+and get a modded firmware file to flash. Read each mod's user guide in the app, too. No Git,
+Python, compiler or terminal needed.
 
 **The Mod Matrix, perkons-re and the main mods are by [kiteless](https://github.com/kiteless).**
 This app only packages them so they run without installing anything. It downloads the
@@ -60,6 +61,25 @@ kiteless's guide has the details: [building](https://github.com/kiteless/perkons
 > A firmware file you build contains Erica Synths' firmware: it's for your own Pērkons,
 > please don't share it.
 
+## User guides
+
+Every mod and engine has a user guide: what it does, its controls and how to use it on the
+Pērkons. Read them in the app, before or after building, with no firmware loaded.
+
+1. Click the **USER GUIDES** tab at the top of the window. **MOD MATRIX** takes you back to
+   building; whatever you had loaded or ticked there stays as it was.
+2. Pick a mod or engine on the left to show its guide on the right. The list holds the mods
+   from every repo, A to Z, with each one's author and whether it's a **MOD** or an
+   **ENGINE**.
+3. Narrow the list with the search box (name, description or author; Enter opens the first
+   match, Esc clears it), or show only **MODS** or **ENGINES**.
+
+Links within a guide jump to its sections, and links to another mod open that mod's guide.
+Other links open in your web browser; **View on GitHub** shows the guide in its repo.
+
+Guides come from the mods' repos, so they're always the current ones. Each guide you open is
+kept: offline, the app shows the copy from your last visit and says so.
+
 ## Help
 
 * **Something went wrong:** the app writes a log, `launcher.log`, in its data folder:
@@ -90,6 +110,9 @@ It does not hold perkons-re or any mods. On each start the launcher downloads th
 perkons-re (`main`) as a zip from GitHub, or uses the last one when offline, and starts its
 Mod Matrix with the bundled Python and compiler. The Mod Matrix gets the mods itself, from
 the repos in [repos.json](https://github.com/kiteless/perkons-re-mods/blob/main/repos.json).
+The window shows the launcher's own page (`launcher/ui/`): the Mod Matrix in a frame on one
+tab and the user guides on the other. The guides list comes from the Mod Matrix's mod list;
+each README is fetched from GitHub and rendered with marked and DOMPurify (both bundled).
 An update of perkons-re that needs other Python packages than the app holds is not used
 (the app keeps the one it has and says so).
 
@@ -98,7 +121,8 @@ Everything downloaded or built goes in the data folder, never in the app:
 * macOS: `~/Library/Application Support/Perkons Mod Matrix/`
 * Windows: `%LOCALAPPDATA%\PerkonsModMatrix\`
 
-with `framework/` (perkons-re), `cache/` (mods, measurements) and `launcher.log`. Deleting
+with `framework/` (perkons-re), `cache/` (mods, measurements), `guides/` (the user guides
+you've opened) and `launcher.log`. Deleting
 it resets the app. Builds run in a temporary folder whose path has no spaces (perkons-re's
 linker-map parsing needs that): `~/Library/Caches/PerkonsModMatrix/tmp` on macOS, the data
 folder's short (8.3) path on Windows.

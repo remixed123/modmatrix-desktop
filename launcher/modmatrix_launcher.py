@@ -147,11 +147,11 @@ class Log:
 
 # -- the framework (perkons-re) ---------------------------------------------------------------
 
-def fetch(url, accept=None):
+def fetch(url, accept=None, timeout=TIMEOUT):
     headers = {'User-Agent': f'perkons-mod-matrix-desktop/{APP_VERSION}'}
     if accept:
         headers['Accept'] = accept
-    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=TIMEOUT) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=timeout) as r:
         return r.read()
 
 
@@ -353,7 +353,7 @@ class Server:
     def __init__(self, runtime, framework, data, log, repos_url=None):
         self.runtime, self.framework, self.data, self.log = runtime, framework, data, log
         self.repos_url = repos_url
-        self.proc, self.url = None, None
+        self.proc, self.url, self.shell = None, None, None
 
     def start(self):
         tmp = work_dir(self.data)
@@ -389,6 +389,9 @@ class Server:
         return self.url
 
     def stop(self):
+        if self.shell:
+            self.shell.stop()
+            self.shell = None
         p = self.proc
         if not p or p.poll() is not None:
             return
@@ -400,6 +403,177 @@ class Server:
             p.kill()
             p.wait(5)
         shutil.rmtree(work_dir(self.data), ignore_errors=True)
+
+
+# -- the app's own page: MOD MATRIX and USER GUIDES tabs ----------------------------------------
+#
+# The window shows a small page served from here: the Mod Matrix in an iframe (tab 1, untouched)
+# and the mods' READMEs (tab 2). The guides need no firmware: the mod list comes from the Mod
+# Matrix's /api/mods (all repos), each README from GitHub, kept in the data folder for offline use.
+
+RAW_URL = 'https://raw.githubusercontent.com/{repo}/{ref}/{path}'
+REPO_RE = re.compile(r'^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$')
+REF_RE = re.compile(r'^[A-Za-z0-9._/-]+$')
+DOC_PATH_RE = re.compile(r'^[A-Za-z0-9._/ -]+\.md$', re.IGNORECASE)
+README_TIMEOUT = 8
+UI_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+            '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png'}
+
+
+def ui_dir():
+    """The page's files: ui/ in the frozen app, launcher/ui when run from source."""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, 'ui')
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui')
+
+
+def _safe_rel(path):
+    """A relative path with no '..', no empty or hidden parts (a file name inside a folder)."""
+    parts = path.split('/')
+    return bool(path) and all(p and p not in ('.', '..') and not p.startswith('.') for p in parts)
+
+
+class Guides:
+    def __init__(self, data, matrix_url, log):
+        self.root = os.path.join(data, 'guides')
+        self.matrix_url, self.log = matrix_url, log
+
+    def mods(self):
+        """Every offered mod (all repos), A-Z by title, with its README's path in its repo."""
+        opts = json.loads(FETCH(self.matrix_url + 'api/mods', timeout=SERVER_START_TIMEOUT))['options']
+        out = []
+        for o in opts:
+            repo, ref, readme = o.get('repo'), o.get('ref') or 'main', o.get('readme')
+            path = None
+            prefix = f'https://github.com/{repo}/blob/{ref}/'
+            if repo and readme and readme.startswith(prefix):
+                path = readme[len(prefix):]
+            out.append({'id': o['id'], 'title': o.get('title') or o['id'], 'summary': o.get('summary', ''),
+                        'kind': 'engine' if o.get('kind') == 'voice' else 'mod',
+                        'repo': repo, 'ref': ref, 'dir': o.get('dir'), 'author': o.get('author'),
+                        'readme': path})
+        out.sort(key=lambda m: (m['title'].casefold(), m['id']))
+        return out
+
+    def cache_path(self, repo, ref, path):
+        owner, name = repo.split('/')
+        return os.path.join(self.root, owner, name, *ref.split('/'), *path.split('/'))
+
+    def readme(self, repo, ref, path):
+        """(text, from_cache). Fresh from GitHub when it answers, else the copy from last
+        time; LaunchError if neither."""
+        if not (REPO_RE.match(repo or '') and REF_RE.match(ref or '') and _safe_rel(ref)
+                and DOC_PATH_RE.match(path or '') and _safe_rel(path)):
+            raise ValueError('not a README in a mod repo')
+        cached = self.cache_path(repo, ref, path)
+        try:
+            raw = FETCH(RAW_URL.format(repo=repo, ref=ref, path=urllib.request.quote(path)), timeout=README_TIMEOUT)
+            text = raw.decode('utf-8', errors='replace')
+        except Exception as e:
+            if os.path.exists(cached):
+                with open(cached, encoding='utf-8') as f:
+                    return f.read(), True
+            self.log(f'guide {repo}/{path}: {e}')
+            raise LaunchError('This guide could not be downloaded, and there is no copy from an earlier visit. '
+                              'Check the internet connection.') from None
+        os.makedirs(os.path.dirname(cached), exist_ok=True)
+        tmp = cached + '.part'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write(text)
+        os.replace(tmp, cached)
+        return text, False
+
+
+class Shell:
+    """The local web server for the app's page (127.0.0.1, a free port)."""
+
+    def __init__(self, matrix_url, data, log):
+        self.matrix_url = matrix_url
+        self.guides = Guides(data, matrix_url, log)
+        self.log = log
+        self.httpd, self.url = None, None
+
+    def start(self):
+        from http.server import ThreadingHTTPServer
+        self.httpd = ThreadingHTTPServer(('127.0.0.1', 0), self.handler())
+        self.httpd.daemon_threads = True
+        self.url = f'http://127.0.0.1:{self.httpd.server_address[1]}/'
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.log(f'app page at {self.url}')
+        return self.url
+
+    def stop(self):
+        if self.httpd:
+            self.httpd.shutdown()
+            self.httpd.server_close()
+            self.httpd = None
+
+    def index(self):
+        import html
+        with open(os.path.join(ui_dir(), 'shell.html'), encoding='utf-8') as f:
+            text = f.read()
+        origin = self.matrix_url.rstrip('/')
+        return (text.replace('{{MATRIX_URL}}', html.escape(self.matrix_url))
+                    .replace('{{MATRIX_ORIGIN}}', html.escape(origin))
+                    .replace('{{TITLE}}', html.escape(TITLE))
+                    .replace('{{CREDIT}}', html.escape(CREDIT)))
+
+    def handler(self):
+        from http import HTTPStatus
+        from http.server import BaseHTTPRequestHandler
+        import urllib.parse
+        shell = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                pass
+
+            def send(self, status, body, ctype):
+                if isinstance(body, str):
+                    body = body.encode('utf-8')
+                self.send_response(status)
+                self.send_header('Content-Type', ctype)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.end_headers()
+                self.wfile.write(body)
+
+            def send_json(self, obj, status=HTTPStatus.OK):
+                self.send(status, json.dumps(obj), 'application/json')
+
+            def do_GET(self):
+                # only this machine's page: a web site can't reach us through a DNS name
+                if self.headers.get('Host') != shell.url[len('http://'):-1]:
+                    return self.send(HTTPStatus.FORBIDDEN, 'forbidden', 'text/plain')
+                url = urllib.parse.urlparse(self.path)
+                q = urllib.parse.parse_qs(url.query)
+                try:
+                    if url.path == '/':
+                        return self.send(HTTPStatus.OK, shell.index(), UI_TYPES['.html'])
+                    if url.path == '/guides/mods':
+                        return self.send_json({'mods': shell.guides.mods()})
+                    if url.path == '/guides/readme':
+                        arg = lambda k: q.get(k, [''])[0]
+                        text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
+                        return self.send_json({'text': text, 'cached': cached})
+                    if url.path.startswith('/ui/'):
+                        rel = urllib.parse.unquote(url.path[len('/ui/'):])
+                        ext = os.path.splitext(rel)[1].lower()
+                        full = os.path.join(ui_dir(), *rel.split('/'))
+                        if _safe_rel(rel) and ext in UI_TYPES and rel != 'shell.html' and os.path.isfile(full):
+                            with open(full, 'rb') as f:
+                                return self.send(HTTPStatus.OK, f.read(), UI_TYPES[ext])
+                    return self.send(HTTPStatus.NOT_FOUND, 'not found', 'text/plain')
+                except ValueError as e:
+                    return self.send_json({'error': str(e)}, HTTPStatus.BAD_REQUEST)
+                except LaunchError as e:
+                    return self.send_json({'error': str(e)}, HTTPStatus.BAD_GATEWAY)
+                except Exception as e:
+                    shell.log(f'app page {url.path}: {traceback.format_exc()}')
+                    return self.send_json({'error': f'{type(e).__name__}: {e}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        return Handler
 
 
 # -- the window ---------------------------------------------------------------------------------
@@ -422,14 +596,16 @@ def page(msg, small=DISCLAIMER):
 
 
 def prepare_and_start(args, runtime, data, log, status):
-    """Framework, then server. Returns (server, url, notice)."""
+    """Framework, then server, then the app's page. Returns (server, the page's url, notice)."""
     if args.framework:
         framework, notice = os.path.abspath(args.framework), None
     else:
         framework, notice = Frameworks(data, log).prepare(runtime.info, status)
     status('Starting the Mod Matrix...')
     server = Server(runtime, framework, data, log, args.repos_url)
-    return server, server.start(), notice
+    matrix_url = server.start()
+    server.shell = Shell(matrix_url, data, log)
+    return server, server.shell.start(), notice
 
 
 def unblock_bundle(log):

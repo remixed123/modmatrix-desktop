@@ -24,7 +24,7 @@ if sys.platform == 'win32':   # the exe's Properties > Details
             StringStruct('LegalCopyright', f'{DEVELOPER}. Unofficial, not endorsed by Erica Synths.')])]),
               VarFileInfo([VarStruct('Translation', [0x0409, 1200])])])
 
-a = Analysis(['launcher/modmatrix_launcher.py'], excludes=['tkinter', 'unittest', 'pydoc', 'test'])
+a = Analysis(['launcher/modmatrix_launcher.py'], datas=[('launcher/ui', 'ui')], excludes=['tkinter', 'unittest', 'pydoc', 'test'])
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=False, icon=ICON, version=VERSION_FILE,
           argv_emulation=False, upx=False)

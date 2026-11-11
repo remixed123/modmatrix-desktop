@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; frame-src {{MATRIX_ORIGIN}}; base-uri 'none'; form-action 'none'">
+<title>{{TITLE}}</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/ui/shell.css">
+</head>
+<body>
+<nav id="tabs" role="tablist" aria-label="Views">
+  <button class="tab" role="tab" id="tab-matrix" aria-controls="matrix" aria-selected="true" data-view="matrix">MOD MATRIX</button>
+  <button class="tab" role="tab" id="tab-guides" aria-controls="guides" aria-selected="false" data-view="guides">USER GUIDES</button>
+</nav>
+
+<div id="stage">
+  <iframe id="matrix" role="tabpanel" aria-labelledby="tab-matrix" title="Mod Matrix" src="{{MATRIX_URL}}"></iframe>
+
+  <section id="guides" role="tabpanel" aria-labelledby="tab-guides" hidden>
+    <div id="side">
+      <input id="search" type="search" placeholder="Search mods and engines" aria-label="Search mods and engines" autocomplete="off" spellcheck="false">
+      <div id="filter" role="radiogroup" aria-label="Show">
+        <button role="radio" data-kind="all" aria-checked="true">ALL</button>
+        <button role="radio" data-kind="mod" aria-checked="false">MODS</button>
+        <button role="radio" data-kind="engine" aria-checked="false">ENGINES</button>
+      </div>
+      <p id="list-note" class="note" aria-live="polite">Loading the mod list...</p>
+      <ul id="list"></ul>
+    </div>
+    <article id="doc" tabindex="-1" aria-live="polite">
+      <div class="empty">
+        <h1>User guides</h1>
+        <p>Choose a mod or engine on the left to read its guide. No firmware is needed to read them.</p>
+        <p class="small">{{CREDIT}}</p>
+      </div>
+    </article>
+  </section>
+</div>
+
+<script src="/ui/vendor/marked.umd.js"></script>
+<script src="/ui/vendor/purify.min.js"></script>
+<script src="/ui/guides.js"></script>
+</body>
+</html>

@@ -15,4 +15,6 @@ image; the Mod Matrix (perkons-re) and the mods are downloaded from GitHub when 
 | unicorn | 2.1.4 | GPL-2.0 (`GPL-2.0.txt`, `unicorn-*`) | https://github.com/unicorn-engine/unicorn |
 | pywebview | 6.2.1 | BSD-3-Clause (`launcher-*`) | https://github.com/r0x0r/pywebview |
 | PyObjC (macOS) | see `launcher-*` | MIT | https://github.com/ronaldoussoren/pyobjc |
+| marked (renders the user guides) | 18.1.1 | MIT (`marked-MIT.txt`) | https://github.com/markedjs/marked |
+| DOMPurify (cleans the rendered user guides) | 3.4.17 | Apache-2.0 or MPL-2.0 (`DOMPurify-LICENSE.txt`) | https://github.com/cure53/DOMPurify |
 | PyInstaller bootloader | 6.22.3 | GPL-2.0 with the bootloader exception | https://github.com/pyinstaller/pyinstaller |

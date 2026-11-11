@@ -180,5 +180,118 @@ class TestHelpers(unittest.TestCase):
             shutil.rmtree(d)
 
 
+MATRIX = 'http://127.0.0.1:5555/'
+MODS = {'options': [
+    {'id': 'kiteless/perkons-re-mods:fx-reverb', 'title': 'FX REVERB', 'summary': 'A reverb.', 'kind': 'mod',
+     'repo': 'kiteless/perkons-re-mods', 'ref': 'main', 'dir': 'fx-reverb', 'author': 'kiteless',
+     'readme': 'https://github.com/kiteless/perkons-re-mods/blob/main/fx-reverb/README.md'},
+    {'id': 'remixed123/perkons-re-mods:voice-akords', 'title': 'Akords', 'summary': 'Chords.', 'kind': 'voice',
+     'repo': 'remixed123/perkons-re-mods', 'ref': 'main', 'dir': 'voice-akords', 'author': 'remixed123',
+     'readme': 'https://github.com/remixed123/perkons-re-mods/blob/main/voice-akords/README.md'},
+    {'id': 'kiteless/perkons-re-mods:pattern-bpm', 'title': 'pattern bpm', 'summary': '', 'kind': 'mod',
+     'repo': 'kiteless/perkons-re-mods', 'ref': 'main', 'dir': 'pattern-bpm', 'readme': None},
+]}
+README = 'https://raw.githubusercontent.com/remixed123/perkons-re-mods/main/voice-akords/README.md'
+
+
+class FakeWeb:
+    def __init__(self):
+        self.down, self.log = False, []
+
+    def __call__(self, url, accept=None, timeout=None):
+        self.log.append(url)
+        if url == MATRIX + 'api/mods':
+            return json.dumps(MODS).encode()
+        if self.down:
+            raise OSError('network down')
+        if url == README:
+            return '# Akords\n'.encode()
+        raise OSError(f'404 {url}')
+
+
+class TestGuides(unittest.TestCase):
+    def setUp(self):
+        self.data = tempfile.mkdtemp()
+        self.web, self.saved = FakeWeb(), L.FETCH
+        L.FETCH = self.web
+        self.guides = L.Guides(self.data, MATRIX, lambda msg: None)
+
+    def tearDown(self):
+        L.FETCH = self.saved
+        shutil.rmtree(self.data)
+
+    def test_mods_a_to_z_with_kind_and_readme_path(self):
+        mods = self.guides.mods()
+        self.assertEqual([m['title'] for m in mods], ['Akords', 'FX REVERB', 'pattern bpm'])
+        self.assertEqual([m['kind'] for m in mods], ['engine', 'mod', 'mod'])
+        self.assertEqual(mods[0]['readme'], 'voice-akords/README.md')
+        self.assertIsNone(mods[2]['readme'])
+
+    def test_readme_is_kept_for_offline(self):
+        args = ('remixed123/perkons-re-mods', 'main', 'voice-akords/README.md')
+        self.assertEqual(self.guides.readme(*args), ('# Akords\n', False))
+        self.web.down = True
+        self.assertEqual(self.guides.readme(*args), ('# Akords\n', True))
+
+    def test_offline_without_a_copy_says_so(self):
+        self.web.down = True
+        with self.assertRaises(L.LaunchError):
+            self.guides.readme('remixed123/perkons-re-mods', 'main', 'voice-akords/README.md')
+
+    def test_only_readmes_in_a_repo(self):
+        for repo, ref, path in [('x', 'main', 'a/README.md'), ('a/b', 'main', '../x.md'), ('a/b', '..', 'x.md'),
+                                ('a/b', 'main', 'a/../../x.md'), ('a/b', 'main', 'x.py'), ('a/b', 'main', '/etc/x.md'),
+                                ('a/b', 'main', '.git/x.md')]:
+            with self.assertRaises(ValueError, msg=(repo, ref, path)):
+                self.guides.readme(repo, ref, path)
+        self.assertEqual(self.web.log, [])
+
+
+class TestShell(unittest.TestCase):
+    def setUp(self):
+        self.data = tempfile.mkdtemp()
+        self.web, self.saved = FakeWeb(), L.FETCH
+        L.FETCH = self.web
+        self.shell = L.Shell(MATRIX, self.data, lambda msg: None)
+        self.url = self.shell.start()
+
+    def tearDown(self):
+        self.shell.stop()
+        L.FETCH = self.saved
+        shutil.rmtree(self.data)
+
+    def get(self, path, host=None):
+        import http.client
+        c = http.client.HTTPConnection(self.url[len('http://'):-1], timeout=5)
+        c.request('GET', path, headers={'Host': host} if host else {})
+        r = c.getresponse()
+        body = r.read()
+        c.close()
+        return r.status, body
+
+    def test_page_holds_the_mod_matrix(self):
+        status, body = self.get('/')
+        self.assertEqual(status, 200)
+        self.assertIn(f'src="{MATRIX}"'.encode(), body)
+        self.assertIn(b'frame-src http://127.0.0.1:5555;', body)
+        self.assertNotIn(b'{{', body)
+
+    def test_guides_api(self):
+        status, body = self.get('/guides/mods')
+        self.assertEqual((status, len(json.loads(body)['mods'])), (200, 3))
+        status, body = self.get('/guides/readme?repo=remixed123/perkons-re-mods&ref=main&path=voice-akords/README.md')
+        self.assertEqual((status, json.loads(body)['text']), (200, '# Akords\n'))
+        self.assertEqual(self.get('/guides/readme?repo=a/b&ref=main&path=../x.md')[0], 400)
+
+    def test_files(self):
+        self.assertEqual(self.get('/ui/guides.js')[0], 200)
+        self.assertEqual(self.get('/ui/vendor/purify.min.js')[0], 200)
+        for path in ['/ui/../modmatrix_launcher.py', '/ui/%2e%2e/modmatrix_launcher.py', '/ui/shell.html', '/ui/x.py']:
+            self.assertEqual(self.get(path)[0], 404, path)
+
+    def test_other_hosts_are_refused(self):
+        self.assertEqual(self.get('/guides/mods', host='evil.example:80')[0], 403)
+
+
 if __name__ == '__main__':
     unittest.main()
