@@ -50,6 +50,8 @@ jobs:
         run: scripts/build_macos.sh
       - name: Launcher tests
         run: build/venv/bin/python -m unittest discover -s tests
+      - name: Runtime check (toolchain, emulator, Mod Matrix server and both repos; no firmware)
+        run: build/runtime/python/bin/python3 -I tests/smoke_build.py --runtime build/runtime
       - id: done
         run: echo "notarised=${{ env.HAS_CERT == 'true' && env.HAS_NOTARY == 'true' }}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
@@ -67,6 +69,9 @@ jobs:
       - name: Launcher tests
         shell: pwsh
         run: build/venv/Scripts/python.exe -m unittest discover -s tests
+      - name: Runtime check (toolchain, emulator, Mod Matrix server and both repos; no firmware)
+        shell: pwsh
+        run: build/runtime/python/python.exe -I tests/smoke_build.py --runtime build/runtime
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64
