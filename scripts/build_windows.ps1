@@ -26,7 +26,10 @@ function Fetch($url, $sha) {
   $path = Join-Path $DL $name
   if (-not (Test-Path $path) -or (Get-FileHash $path -Algorithm SHA256).Hash -ne $sha.ToUpper()) {
     Write-Host "downloading $name"
-    Invoke-WebRequest -Uri $url -OutFile "$path.part" -UseBasicParsing
+    # curl.exe, not Invoke-WebRequest: .NET turns the %2F in Arm's GitLab URLs into /, and
+    # GitLab then answers with an error page
+    & curl.exe -fsSL --retry 3 -o "$path.part" $url
+    if ($LASTEXITCODE -ne 0) { throw "download failed ($LASTEXITCODE): $url" }
     Move-Item -Force "$path.part" $path
   }
   if ((Get-FileHash $path -Algorithm SHA256).Hash -ne $sha.ToUpper()) { throw "checksum mismatch: $name" }
