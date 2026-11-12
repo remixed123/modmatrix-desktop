@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 PLATFORM=macos-arm64
-APP_NAME="Perkons Mod Matrix"
+APP_NAME="Perkons Mod Matrix Desktop"
 BUILD="$ROOT/build"
 DL="$BUILD/downloads"
 RT="$BUILD/runtime"

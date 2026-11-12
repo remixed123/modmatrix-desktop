@@ -1,6 +1,6 @@
-# Third-party software in Perkons Mod Matrix
+# Third-party software in Perkons Mod Matrix Desktop
 
-Perkons Mod Matrix is unofficial. It is not affiliated with or endorsed by Erica Synths.
+Perkons Mod Matrix Desktop is unofficial. It is not affiliated with or endorsed by Erica Synths.
 Modded firmware is flashed entirely at your own risk.
 
 The app contains no Erica Synths firmware and no mods. You supply your own official firmware

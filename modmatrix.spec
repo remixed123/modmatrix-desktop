@@ -4,7 +4,7 @@ import re
 import sys
 
 VERSION = re.search(r"APP_VERSION = '([^']+)'", open('launcher/modmatrix_launcher.py').read()).group(1)
-NAME = 'Perkons Mod Matrix'
+NAME = 'Perkons Mod Matrix Desktop'
 DEVELOPER = 'remixed123'
 ICON = {'darwin': 'assets/icon.icns', 'win32': 'assets/icon.ico'}.get(sys.platform)
 import os
@@ -18,7 +18,7 @@ if sys.platform == 'win32':   # the exe's Properties > Details
     VERSION_FILE = VSVersionInfo(
         ffi=FixedFileInfo(filevers=nums, prodvers=nums),
         kids=[StringFileInfo([StringTable('040904B0', [
-            StringStruct('CompanyName', DEVELOPER), StringStruct('FileDescription', f'Mod Matrix Desktop, packaged by {DEVELOPER}'),
+            StringStruct('CompanyName', DEVELOPER), StringStruct('FileDescription', f'{NAME}, packaged by {DEVELOPER}'),
             StringStruct('ProductName', NAME), StringStruct('FileVersion', VERSION),
             StringStruct('ProductVersion', VERSION), StringStruct('OriginalFilename', f'{NAME}.exe'),
             StringStruct('LegalCopyright', f'{DEVELOPER}. Unofficial, not endorsed by Erica Synths.')])]),

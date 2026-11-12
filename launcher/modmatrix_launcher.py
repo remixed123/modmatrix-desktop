@@ -32,8 +32,9 @@ import urllib.request
 import webbrowser
 import zipfile
 
-APP_NAME = 'Perkons Mod Matrix'
-APP_VERSION = '0.2.0'
+APP_NAME = 'Perkons Mod Matrix Desktop'
+DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
+APP_VERSION = '0.3.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
@@ -46,7 +47,7 @@ KEEP_FRAMEWORKS = 2
 WINDOWS = platform.system() == 'Windows'
 MACOS = platform.system() == 'Darwin'
 DEVELOPER = 'remixed123'
-TITLE = f'Mod Matrix Desktop, packaged by {DEVELOPER}'
+TITLE = f'{APP_NAME}, packaged by {DEVELOPER}'
 CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app packaged by {DEVELOPER} (github.com/{DEVELOPER}).'
 DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
               'flashed entirely at your own risk.')
@@ -63,7 +64,7 @@ def data_dir():
         base = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~\\AppData\\Local')
         return os.path.join(base, 'PerkonsModMatrix')         # short: Windows path limits
     if MACOS:
-        return os.path.expanduser(f'~/Library/Application Support/{APP_NAME}')
+        return os.path.expanduser(f'~/Library/Application Support/{DATA_NAME}')
     return os.path.join(os.environ.get('XDG_DATA_HOME') or os.path.expanduser('~/.local/share'),
                         'perkons-mod-matrix')
 

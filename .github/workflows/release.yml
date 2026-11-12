@@ -72,15 +72,15 @@ jobs:
       - name: Window check (the app's DLLs marked as downloaded, as Explorer's Extract All does)
         shell: pwsh
         run: |
-          $app = "dist\Perkons Mod Matrix"
+          $app = "dist\Perkons Mod Matrix Desktop"
           $mark = { Get-ChildItem $app -Recurse -Filter *.dll | ForEach-Object { Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3" } }
           & $mark
           $env:MODMATRIX_NO_UNBLOCK = '1'
-          $p = Start-Process "$app\Perkons Mod Matrix.exe" -ArgumentList '--selftest' -Wait -PassThru
+          $p = Start-Process "$app\Perkons Mod Matrix Desktop.exe" -ArgumentList '--selftest' -Wait -PassThru
           Write-Host "marked, not unblocked: exit $($p.ExitCode) (expected 1)"
           Remove-Item Env:MODMATRIX_NO_UNBLOCK
           & $mark
-          $p = Start-Process "$app\Perkons Mod Matrix.exe" -ArgumentList '--selftest' -Wait -PassThru
+          $p = Start-Process "$app\Perkons Mod Matrix Desktop.exe" -ArgumentList '--selftest' -Wait -PassThru
           Write-Host "marked, unblocked by the app: exit $($p.ExitCode)"
           Get-Content "$env:LOCALAPPDATA\PerkonsModMatrix\launcher.log" -Tail 8
           if ($p.ExitCode -ne 0) { throw 'the window cannot load' }
@@ -114,4 +114,4 @@ jobs:
       - name: Draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --draft --title "Mod Matrix Desktop $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md out/*/* out/*.tar.xz
+        run: gh release create "$GITHUB_REF_NAME" --draft --title "Perkons Mod Matrix Desktop $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md out/*/* out/*.tar.xz

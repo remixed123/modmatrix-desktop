@@ -1,4 +1,4 @@
-# Mod Matrix Desktop
+# <img src="assets/icon.png" alt="" width="64" align="center"> Perkons Mod Matrix Desktop
 
 The [Mod Matrix](https://github.com/kiteless/perkons-re) for the Erica Synths Pērkons HD-01,
 as a desktop app for Mac and Windows. Load your official firmware, tick the mods you want,
@@ -24,7 +24,7 @@ Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/r
 
 **Mac**
 
-1. Open `ModMatrixDesktop-macOS.dmg` and drag **Perkons Mod Matrix** to **Applications**.
+1. Open `ModMatrixDesktop-macOS.dmg` and drag **Perkons Mod Matrix Desktop** to **Applications**.
 2. Open it from Applications. The first time, macOS asks whether to open an app downloaded
    from the internet: choose **Open**.
 
@@ -32,7 +32,7 @@ Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/r
 
 1. Right-click `ModMatrixDesktop-Windows.zip` and choose **Extract All**. Keep the extracted
    folder together: the app needs the files next to it.
-2. Open the folder and run **Perkons Mod Matrix.exe**. The app isn't signed, so Windows may
+2. Open the folder and run **Perkons Mod Matrix Desktop.exe**. The app isn't signed, so Windows may
    show "Windows protected your PC": click **More info**, then **Run anyway**.
 
 The first start needs an internet connection: the app downloads the Mod Matrix and the

@@ -1,4 +1,4 @@
-# Build the Windows app (x64), unsigned: dist\Perkons Mod Matrix\ and a zip of it.
+# Build the Windows app (x64), unsigned: dist\Perkons Mod Matrix Desktop\ and a zip of it.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1
 #
@@ -11,7 +11,7 @@ $ProgressPreference = 'SilentlyContinue'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 $Platform = 'windows-x64'
-$AppName = 'Perkons Mod Matrix'
+$AppName = 'Perkons Mod Matrix Desktop'
 $Build = Join-Path $Root 'build'
 $DL = Join-Path $Build 'downloads'
 $RT = Join-Path $Build 'runtime'
