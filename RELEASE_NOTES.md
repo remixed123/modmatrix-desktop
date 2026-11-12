@@ -1,5 +1,12 @@
-**New in 0.3.0: a new name and an icon.** The app is now called **Perkons Mod Matrix Desktop**
-and has its own icon.
+**New in 0.4.0: print, copy and refresh the user guides.**
+
+* **PRINT** prints the guide you're reading, black on white, or saves it as a PDF.
+* **COPY** copies the whole guide, to paste into a document or a message with its headings and
+  tables. To copy part of a guide, select it and right-click > **Copy** (or Cmd+C / Ctrl+C).
+* **Refresh** (the round arrow next to the search box) gets the list and the guides again, for
+  mods released since you opened the app.
+
+**In 0.3.0:** the app is now called **Perkons Mod Matrix Desktop** and has its own icon.
 
 **In 0.2.0: user guides.** A **USER GUIDES** tab next to the Mod Matrix shows every mod's
 and engine's guide, from all mod repos, without loading any firmware.

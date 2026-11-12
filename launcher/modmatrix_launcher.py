@@ -34,7 +34,7 @@ import zipfile
 
 APP_NAME = 'Perkons Mod Matrix Desktop'
 DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
-APP_VERSION = '0.3.0'
+APP_VERSION = '0.4.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
@@ -349,12 +349,39 @@ sys.argv = sys.argv[1:]
 runpy.run_path(sys.argv[0], run_name="__main__")
 '''
 
+# The repo list and every repo's manifest, read again now with the framework's own code (the
+# Mod Matrix reads them once, at start): {options: [the fields the guides use], failed: [[repo, why]]}.
+REFRESH = '''
+import json, sys
+sys.path.insert(0, "tools")
+from perkons import repos
+KEEP = ("id", "title", "summary", "kind", "repo", "ref", "dir", "author", "readme")
+out, failed = [], []
+for r in repos.config():
+    try:
+        out += [{k: o.get(k) for k in KEEP} for o in repos.options(repos.manifest(r["repo"], r["ref"]), r["ref"])]
+    except Exception as e:
+        failed.append([r["repo"], str(e)])
+sys.stdout.write(json.dumps({"options": out, "failed": failed}))
+'''
+REFRESH_TIMEOUT = 60
+
 
 class Server:
     def __init__(self, runtime, framework, data, log, repos_url=None):
         self.runtime, self.framework, self.data, self.log = runtime, framework, data, log
         self.repos_url = repos_url
         self.proc, self.url, self.shell = None, None, None
+
+    def fresh_options(self):
+        """The repos' mods as they are on GitHub now (Guides' fresh)."""
+        kw = {'creationflags': subprocess.CREATE_NO_WINDOW} if WINDOWS else {}
+        r = subprocess.run([self.runtime.python, '-I', '-B', '-c', REFRESH], cwd=self.framework,
+                           env=server_env(self.runtime, self.data, self.repos_url), capture_output=True,
+                           text=True, encoding='utf-8', errors='replace', timeout=REFRESH_TIMEOUT, **kw)
+        if r.returncode:
+            raise LaunchError((r.stderr.strip().splitlines() or ['no output'])[-1])
+        return json.loads(r.stdout)
 
     def start(self):
         tmp = work_dir(self.data)
@@ -435,13 +462,28 @@ def _safe_rel(path):
 
 
 class Guides:
-    def __init__(self, data, matrix_url, log):
+    def __init__(self, data, matrix_url, log, fresh=None):
         self.root = os.path.join(data, 'guides')
         self.matrix_url, self.log = matrix_url, log
+        self.fresh = fresh          # () -> {options, failed}: the repos read again now (Server.fresh_options)
 
-    def mods(self):
-        """Every offered mod (all repos), A-Z by title, with its README's path in its repo."""
+    def mods(self, fresh=False):
+        """Every offered mod (all repos), A-Z by title, with its README's path in its repo.
+        The Mod Matrix reads the repos once, when it starts; fresh: read them again now (for
+        mods released since), each repo that answers replacing what the Mod Matrix has."""
         opts = json.loads(FETCH(self.matrix_url + 'api/mods', timeout=SERVER_START_TIMEOUT))['options']
+        if fresh and self.fresh:
+            try:
+                now = self.fresh()
+            except Exception as e:
+                self.log(f'guides: reading the repos again failed: {e}')
+            else:
+                failed = {r.lower() for r, _ in now.get('failed', [])}
+                on_disk = {o['repo'].lower() for o in opts if o.get('repo') and o.get('local')}   # a developer's clone
+                opts = ([o for o in opts if not o.get('repo') or o['repo'].lower() in failed | on_disk] +
+                        [o for o in now['options'] if o['repo'].lower() not in on_disk])
+                for repo, err in now.get('failed', []):
+                    self.log(f'guides: {repo}: {err}')
         out = []
         for o in opts:
             repo, ref, readme = o.get('repo'), o.get('ref') or 'main', o.get('readme')
@@ -488,9 +530,9 @@ class Guides:
 class Shell:
     """The local web server for the app's page (127.0.0.1, a free port)."""
 
-    def __init__(self, matrix_url, data, log):
+    def __init__(self, matrix_url, data, log, fresh=None):
         self.matrix_url = matrix_url
-        self.guides = Guides(data, matrix_url, log)
+        self.guides = Guides(data, matrix_url, log, fresh)
         self.log = log
         self.httpd, self.url = None, None
 
@@ -553,7 +595,7 @@ class Shell:
                     if url.path == '/':
                         return self.send(HTTPStatus.OK, shell.index(), UI_TYPES['.html'])
                     if url.path == '/guides/mods':
-                        return self.send_json({'mods': shell.guides.mods()})
+                        return self.send_json({'mods': shell.guides.mods(fresh=q.get('fresh') == ['1'])})
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
@@ -605,7 +647,7 @@ def prepare_and_start(args, runtime, data, log, status):
     status('Starting the Mod Matrix...')
     server = Server(runtime, framework, data, log, args.repos_url)
     matrix_url = server.start()
-    server.shell = Shell(matrix_url, data, log)
+    server.shell = Shell(matrix_url, data, log, server.fresh_options)
     return server, server.shell.start(), notice
 
 
@@ -646,7 +688,8 @@ def run_window(args, runtime, data, log):
     except Exception:
         pass
     window = webview.create_window(TITLE, html=page('Starting...'), width=1180, height=860,
-                                   min_size=(800, 600), background_color='#40318d')
+                                   min_size=(800, 600), background_color='#40318d',
+                                   text_select=True)     # pywebview blocks selecting (so copying) text otherwise
     state = {'server': None}
 
     def work():

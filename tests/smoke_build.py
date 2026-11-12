@@ -117,6 +117,11 @@ def main():
         first = guides[0]
         q = urllib.parse.urlencode({'repo': first['repo'], 'ref': first['ref'], 'path': first['readme']})
         assert api(page, f'/guides/readme?{q}')['text'].strip(), first
+        now = server.fresh_options()               # Refresh: the framework's code reads the repos again
+        assert not now['failed'] and {o['id'] for o in now['options']} >= {g['id'] for g in guides}, now
+        fresh = api(page, '/guides/mods?fresh=1')['mods']
+        print('guides after refresh:', len(fresh))
+        assert {g['id'] for g in fresh} == {o['id'] for o in now['options']}, fresh
         if not a.image:
             print('no image: stopping before the build')
             return

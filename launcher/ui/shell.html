@@ -19,7 +19,10 @@
 
   <section id="guides" role="tabpanel" aria-labelledby="tab-guides" hidden>
     <div id="side">
-      <input id="search" type="search" placeholder="Search mods and engines" aria-label="Search mods and engines" autocomplete="off" spellcheck="false">
+      <div id="search-row">
+        <input id="search" type="search" placeholder="Search mods and engines" aria-label="Search mods and engines" autocomplete="off" spellcheck="false">
+        <button id="refresh" type="button" title="Refresh: get the list and guides again, with anything released since the app was opened" aria-label="Refresh the list of guides">&#x21bb;</button>
+      </div>
       <div id="filter" role="radiogroup" aria-label="Show">
         <button role="radio" data-kind="all" aria-checked="true">ALL</button>
         <button role="radio" data-kind="mod" aria-checked="false">MODS</button>

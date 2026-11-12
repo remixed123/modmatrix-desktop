@@ -227,6 +227,26 @@ class TestGuides(unittest.TestCase):
         self.assertEqual(mods[0]['readme'], 'voice-akords/README.md')
         self.assertIsNone(mods[2]['readme'])
 
+    def test_refresh_reads_the_repos_again(self):
+        new = {'id': 'remixed123/perkons-re-mods:voice-kick-lab', 'title': 'Kick Lab', 'summary': '', 'kind': 'voice',
+               'repo': 'remixed123/perkons-re-mods', 'ref': 'main', 'dir': 'voice-kick-lab', 'author': 'remixed123',
+               'readme': 'https://github.com/remixed123/perkons-re-mods/blob/main/voice-kick-lab/README.md'}
+        akords = MODS['options'][1]
+        # remixed123 answers (Akords + a new one); kiteless fails: its mods are kept as they were
+        self.guides.fresh = lambda: {'options': [akords, new], 'failed': [['kiteless/perkons-re-mods', 'down']]}
+        self.assertEqual([m['title'] for m in self.guides.mods(fresh=True)], ['Akords', 'FX REVERB', 'Kick Lab', 'pattern bpm'])
+        # a repo that answers replaces what the Mod Matrix had (a mod taken out is gone)
+        self.guides.fresh = lambda: {'options': [new], 'failed': []}
+        self.assertEqual([m['title'] for m in self.guides.mods(fresh=True)], ['Kick Lab'])
+        # not fresh: the Mod Matrix's list
+        self.assertEqual(len(self.guides.mods()), 3)
+
+    def test_refresh_failing_gives_the_mod_matrix_list(self):
+        def broken():
+            raise L.LaunchError('no python')
+        self.guides.fresh = broken
+        self.assertEqual(len(self.guides.mods(fresh=True)), 3)
+
     def test_readme_is_kept_for_offline(self):
         args = ('remixed123/perkons-re-mods', 'main', 'voice-akords/README.md')
         self.assertEqual(self.guides.readme(*args), ('# Akords\n', False))

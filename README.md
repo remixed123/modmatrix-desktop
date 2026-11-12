@@ -77,6 +77,18 @@ Pērkons. Read them in the app, before or after building, with no firmware loade
 Links within a guide jump to its sections, and links to another mod open that mod's guide.
 Other links open in your web browser; **View on GitHub** shows the guide in its repo.
 
+* **PRINT** (top right of a guide) prints the whole guide, black on white, or saves it as a
+  PDF from the print window.
+* **COPY** copies the whole guide, to paste into a document, a note or a message with its
+  headings and tables.
+* To copy part of a guide, select it and **right-click > Copy** (or Cmd+C on a Mac, Ctrl+C on
+  Windows). The right-click menu also has **Select all**, **Copy whole guide** and
+  **Print guide**.
+* **Refresh** (the round arrow next to the search box) gets the list and the guides again,
+  for mods released since you opened the app. New ones are named under the search box. To
+  build with a new mod, restart the app: the **MOD MATRIX** tab reads the list when the app
+  starts.
+
 Guides come from the mods' repos, so they're always the current ones. Each guide you open is
 kept: offline, the app shows the copy from your last visit and says so.
 
@@ -111,7 +123,8 @@ perkons-re (`main`) as a zip from GitHub, or uses the last one when offline, and
 Mod Matrix with the bundled Python and compiler. The Mod Matrix gets the mods itself, from
 the repos in [repos.json](https://github.com/kiteless/perkons-re-mods/blob/main/repos.json).
 The window shows the launcher's own page (`launcher/ui/`): the Mod Matrix in a frame on one
-tab and the user guides on the other. The guides list comes from the Mod Matrix's mod list;
+tab and the user guides on the other. The guides list comes from the Mod Matrix's mod list
+(Refresh reads the repos again with perkons-re's own `perkons.repos`, run by the bundled Python);
 each README is fetched from GitHub and rendered with marked and DOMPurify (both bundled).
 An update of perkons-re that needs other Python packages than the app holds is not used
 (the app keeps the one it has and says so).

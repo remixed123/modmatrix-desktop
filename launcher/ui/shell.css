@@ -18,7 +18,8 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   color: rgba(255, 255, 255, .78); background: transparent; border: 0; border-radius: 4px 4px 0 0; }
 .tab:hover { color: var(--white); }
 .tab[aria-selected="true"] { color: var(--white); background: var(--blue); }
-.tab:focus-visible, #filter button:focus-visible, #list button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.tab:focus-visible, #filter button:focus-visible, #list button:focus-visible, #refresh:focus-visible,
+.doc-tools button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 
 #stage { position: relative; flex: 1 1 auto; min-height: 0; }
 #matrix { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--purple); }
@@ -29,10 +30,17 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 #guides[hidden] { display: none; }
 #side { flex: 0 0 380px; display: flex; flex-direction: column; min-height: 0;
   border-right: 4px solid var(--lightblue); }
-#search { flex: none; margin: 14px 14px 0; padding: 8px 10px; font: 14px/1.3 var(--sans); color: var(--white);
+#search-row { flex: none; display: flex; gap: 6px; margin: 14px 14px 0; }
+#search { flex: 1; min-width: 0; padding: 8px 10px; font: 14px/1.3 var(--sans); color: var(--white);
   background: rgba(0, 0, 0, .25); border: 2px solid var(--lightblue); border-radius: 3px; outline: none; }
 #search::placeholder { color: var(--lightgrey); }
 #search:focus { border-color: var(--text); }
+#refresh { flex: none; width: 38px; font: 20px/1 var(--sans); cursor: pointer; color: var(--text);
+  background: transparent; border: 2px solid var(--lightblue); border-radius: 3px; }
+#refresh:hover { color: var(--white); border-color: var(--text); }
+#refresh:disabled { cursor: default; opacity: .6; }
+#refresh.busy { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 #filter { flex: none; display: flex; gap: 6px; padding: 10px 14px 10px; }
 #filter button { flex: 1; font: 600 12px/1 var(--mono); letter-spacing: .06em; padding: 8px 4px; cursor: pointer;
   color: var(--text); background: transparent; border: 2px solid var(--lightblue); border-radius: 3px; }
@@ -62,6 +70,26 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .doc-bar { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; margin: 0 0 6px;
   font: 12px/1.4 var(--mono); color: var(--lightgrey); }
 .doc-bar a { color: var(--cyan); }
+.doc-tools { margin-left: auto; display: flex; gap: 6px; }
+.doc-tools button { font: 600 11px/1 var(--mono); letter-spacing: .06em; padding: 6px 10px; cursor: pointer;
+  color: var(--text); background: transparent; border: 2px solid var(--lightblue); border-radius: 3px; }
+.doc-tools button:hover { color: var(--white); border-color: var(--text); }
+.doc-tools button.done { color: var(--blue); background: var(--lightgreen); border-color: var(--lightgreen); }
+
+/* the guide's right-click menu */
+#ctx { position: fixed; z-index: 10; min-width: 190px; padding: 5px; background: var(--blue);
+  border: 2px solid var(--lightblue); border-radius: 5px; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
+#ctx[hidden] { display: none; }
+#ctx button { display: block; width: 100%; text-align: left; padding: 7px 12px; cursor: pointer;
+  font: 14px/1.2 var(--sans); color: var(--white); background: transparent; border: 0; border-radius: 3px; }
+#ctx button:hover:not(:disabled), #ctx button:focus-visible { background: var(--lightblue); outline: none; }
+#ctx button:disabled { color: var(--lightgrey); cursor: default; }
+#ctx hr { border: 0; border-top: 1px solid var(--lightblue); margin: 4px 6px; }
+
+/* text can be selected and copied in the guide, not in the app's controls */
+#tabs, #side, .doc-bar, .empty { -webkit-user-select: none; user-select: none; }
+#search { -webkit-user-select: text; user-select: text; }
+.md { -webkit-user-select: text; user-select: text; cursor: auto; }
 .offline { margin: 0 0 12px; padding: 8px 12px; border-left: 4px solid var(--yellow); background: rgba(0, 0, 0, .18);
   font-size: 13px; color: var(--yellow); }
 .empty { max-width: 560px; margin: 12vh auto 0; text-align: center; }
@@ -95,4 +123,30 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 @media (max-width: 900px) {
   #side { flex-basis: 300px; }
   #doc { padding: 18px 20px 48px; }
+}
+
+/* printing: the guide alone, black on white, all of it (not just the part on screen) */
+@media print {
+  @page { margin: 16mm 14mm; }
+  html, body { height: auto; background: #fff; color: #000; display: block; }
+  body { font-size: 11pt; }
+  #tabs, #side, #matrix, #ctx, .doc-tools, .doc-bar a, .offline, .empty { display: none !important; }
+  #stage, #guides, #doc { position: static; display: block; overflow: visible; height: auto; padding: 0; background: #fff; }
+  .doc-bar { color: #555; margin-bottom: 8px; }
+  .md { max-width: none; color: #000; }
+  .md h1, .md h2, .md h3, .md h4, .md strong, .md th { color: #000; }
+  .md h1, .md h2, .md h3, .md h4 { break-after: avoid; page-break-after: avoid; }
+  .md h1 { border-bottom-color: #888; }
+  .md h2 { border-bottom-color: #bbb; }
+  .md a { color: #000; }
+  .md code, .md pre { background: #f2f2f2; }
+  .md blockquote { color: #333; border-left-color: #999; }
+  .md hr { border-top-color: #999; }
+  .md .table { overflow: visible; }
+  .md table { font-size: 10pt; }
+  .md th, .md td { border-color: #999; }
+  .md th { background: #e8e8e8; }
+  .md tr:nth-child(even) td { background: #f6f6f6; }
+  .md tr, .md img, .md pre, .md blockquote { break-inside: avoid; page-break-inside: avoid; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
