@@ -1,4 +1,8 @@
-**New in 0.5.1:** a yellow **UPDATES AVAILABLE** or **UPDATES FOUND** button now stays yellow
+**New in 0.5.2:** CHECK FOR UPDATES now always shows this app's version too. When a newer
+version is out, it says so, with a button that downloads it for your computer (Mac or Windows)
+and a link to what's new.
+
+**In 0.5.1:** a yellow **UPDATES AVAILABLE** or **UPDATES FOUND** button now stays yellow
 until you click it and press **CLEAR**, even if the app sits in the background for hours or your
 Mac sleeps. An update to the Mod Matrix itself stays until you press **UPDATE NOW**.
 

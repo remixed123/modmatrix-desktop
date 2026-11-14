@@ -49,7 +49,7 @@
     if (r.changed.length) parts.push(`changed: ${r.changed.map((m) => m.title).join(", ")}`);
     if (r.code.length) parts.push(`new code (in your next build): ${r.code.map((m) => m.title).join(", ")}`);
     if (r.unknown.length) parts.push("new code (in your next build)");
-    if (r.app) parts.push(`this app ${r.app.version}`);
+    if (r.app) parts.push(`new version of this app: ${r.app.version}`);
     return parts.join(" \u00b7 ");
   }
 
@@ -125,14 +125,29 @@
   function show(r) {
     body.replaceChildren();
     actions.replaceChildren();
-    if (r.app) {
-      const p = node("p", "", `Version ${r.app.version} of this app is available. `);
-      const a = node("a", "", "Download it");
-      a.href = r.app.url;
-      a.target = "_blank";
+    // this app, always: its version, and the newer one with a download when there is one
+    const me = r.this_app || {};
+    const link = (text, href, cls) => {
+      const a = node("a", cls || "", text);
+      a.href = href;
+      a.target = "_blank";                   // the web browser, not this window
       a.rel = "noopener";
-      p.append(a, " (opens in your web browser). Your settings and downloads stay.");
-      section("This app", [p]);
+      return a;
+    };
+    if (r.app) {
+      const mac = r.app.file.endsWith(".dmg");
+      const p = node("p", "", `Version ${r.app.version} of Perkons Mod Matrix Desktop is available (you have ${me.version}). `);
+      const dl = node("p", "download");
+      dl.append(link(`Download ${r.app.version} for ${mac ? "Mac" : "Windows"}`, r.app.download, "primary"), " ",
+        link("What's new", r.app.url));
+      const how = node("p", "muted", mac
+        ? "Quit this app, open the downloaded ModMatrixDesktop-macOS.dmg and drag the app to Applications, replacing this one. Your settings and downloads stay."
+        : "Quit this app, extract the downloaded ModMatrixDesktop-Windows.zip and run Perkons Mod Matrix Desktop.exe from it. Your settings and downloads stay.");
+      section("This app", [p, dl, how]);
+    } else if (me.latest) {
+      section("This app", [node("p", "ok", `Perkons Mod Matrix Desktop ${me.version}: the latest version.`)]);
+    } else if (me.version) {
+      section("This app", [node("p", "muted", `Perkons Mod Matrix Desktop ${me.version}. Couldn't check for a newer version (see below).`)]);
     }
     if (r.framework) {
       section("Mod Matrix", ["kiteless has updated the Mod Matrix since the app started.", ...commits(r.framework)]);

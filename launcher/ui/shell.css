@@ -57,6 +57,10 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   background: rgba(0, 0, 0, .18); font-size: 13px; color: var(--yellow); }
 #updates .err { color: #e09a8a; }
 #updates a { color: var(--cyan); }
+#updates .download { display: flex; align-items: center; gap: 14px; margin: 8px 0; }
+#updates a.primary { font: 600 12px/1 var(--mono); letter-spacing: .06em; padding: 8px 12px; text-decoration: none;
+  color: var(--blue); background: var(--yellow); border: 2px solid var(--yellow); border-radius: 3px; }
+#updates a.primary:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 #updates-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 #updates-actions:empty { display: none; }
 #updates-actions button { font: 600 12px/1 var(--mono); letter-spacing: .06em; padding: 8px 12px; cursor: pointer;

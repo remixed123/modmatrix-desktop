@@ -383,6 +383,7 @@ class TestUpdates(unittest.TestCase):
 
     def test_nothing_changed(self):
         r = self.up.check()
+        self.assertEqual(r.pop('this_app'), {'version': L.APP_VERSION, 'latest': L.APP_VERSION})
         self.assertFalse(any(r.values()), r)
 
     def test_mods_added_removed_and_changed_need_a_restart(self):
@@ -466,8 +467,16 @@ class TestUpdates(unittest.TestCase):
         L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v99.0.0'
         r = self.up.check()
         self.assertEqual((r['app']['version'], r['restart']), ('99.0.0', False))
+        self.assertTrue(r['app']['download'].endswith('/releases/download/v99.0.0/' + L.APP_FILE))
+        self.assertEqual(r['this_app'], {'version': L.APP_VERSION, 'latest': '99.0.0'})
+        self.assertTrue(self.up.found_anything(r))
         L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v0.0.9'
-        self.assertIsNone(self.up.check()['app'])
+        r = self.up.check()
+        self.assertIsNone(r['app'])
+        self.assertEqual(r['this_app']['latest'], '0.0.9')
+        L.REDIRECT = lambda url: (_ for _ in ()).throw(OSError('offline'))
+        r = self.up.check()
+        self.assertEqual((r['this_app']['latest'], r['failed'][0][0]), (None, 'this app'))
 
 
 if __name__ == '__main__':

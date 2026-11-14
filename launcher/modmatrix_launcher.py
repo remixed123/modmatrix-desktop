@@ -34,7 +34,7 @@ import zipfile
 
 APP_NAME = 'Perkons Mod Matrix Desktop'
 DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
-APP_VERSION = '0.5.1'
+APP_VERSION = '0.5.2'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
@@ -45,6 +45,7 @@ GIT_REFS_URL = 'https://github.com/{repo}.git/info/refs?service=git-upload-pack'
 COMPARE_URL = 'https://api.github.com/repos/{repo}/compare/{old}...{new}'
 APP_REPO = 'remixed123/modmatrix-desktop'
 APP_LATEST_URL = f'https://github.com/{APP_REPO}/releases/latest'      # redirects to the newest release
+APP_FILE = 'ModMatrixDesktop-Windows.zip' if sys.platform == 'win32' else 'ModMatrixDesktop-macOS.dmg'
 TIMEOUT = 20
 SERVER_START_TIMEOUT = 120
 KEEP_FRAMEWORKS = 2
@@ -636,12 +637,17 @@ class Updates:
                 self.flag['cleared'] = str(key)[:4000]
 
     def _check(self, got):
-        out = {'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [], 'code': [],
+        out = {'this_app': {'version': APP_VERSION, 'latest': None}, 'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [], 'code': [],
                'unknown': [], 'failed': list(got['failed']), 'restart': False}
         # the app
         tag = got['app']
+        if tag:
+            out['this_app']['latest'] = tag.lstrip('v')
         if tag and version_tuple(tag) > version_tuple(APP_VERSION):
-            out['app'] = {'version': tag.lstrip('v'), 'url': f'https://github.com/{APP_REPO}/releases/tag/{tag}'}
+            # url: what's new (the release page); download: this system's file, straight away
+            out['app'] = {'version': tag.lstrip('v'), 'url': f'https://github.com/{APP_REPO}/releases/tag/{tag}',
+                          'download': f'https://github.com/{APP_REPO}/releases/download/{tag}/{APP_FILE}',
+                          'file': APP_FILE}
         # perkons-re
         old = self.base['framework']
         new = got['framework']

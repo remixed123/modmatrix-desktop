@@ -104,7 +104,8 @@ started and when you last checked) to see what has changed since:
   firmware you loaded and the mods you ticked are cleared, so load your firmware again
   afterwards. Wait for a build in progress to finish first. **LATER** leaves things as they are.
 * **Updated code** in a mod you can already pick: nothing to do, the next build uses it.
-* **A new version of this app**: a link to download it.
+* **This app**: always shows the version you have; when a newer one is out, a button downloads
+  it for your computer (Mac or Windows), with a link to what's new.
 
 While the app stays open it also checks by itself, about once an hour while its window isn't
 minimised. Nothing pops up; the button turns yellow instead, and stays yellow until you deal
