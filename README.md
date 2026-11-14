@@ -106,13 +106,15 @@ started and when you last checked) to see what has changed since:
 * **Updated code** in a mod you can already pick: nothing to do, the next build uses it.
 * **A new version of this app**: a link to download it.
 
-While the app stays open it also checks by itself, about once an hour when its window is in
-front. Nothing pops up; the button turns yellow instead:
+While the app stays open it also checks by itself, about once an hour while its window isn't
+minimised. Nothing pops up; the button turns yellow instead, and stays yellow until you deal
+with it:
 
 * **UPDATES AVAILABLE** (solid yellow): something to update (UPDATE NOW) or a new version of
-  the app to download.
+  the app to download. An update for the Mod Matrix stays until you press UPDATE NOW; a new
+  app version clears with CLEAR.
 * **UPDATES FOUND** (yellow outline): only mods' code changed; your next build uses it.
-  Click it and CLOSE: the button clears until something new is found.
+  Click it and CLEAR: the button clears until something new is found.
 
 Hold the pointer over the button to see what was found; click it for the details.
 

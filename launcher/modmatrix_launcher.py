@@ -34,7 +34,7 @@ import zipfile
 
 APP_NAME = 'Perkons Mod Matrix Desktop'
 DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
-APP_VERSION = '0.5.0'
+APP_VERSION = '0.5.1'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
@@ -528,6 +528,12 @@ class Updates:
         self.base = {'framework': None, 'repos': {}}
         self.compares = {}          # (repo, old, new) -> compare(): commits don't change
         self.last = None            # (what GitHub had, the result): a quiet check with nothing new reuses it
+        # what the button shows, kept here so it survives the page reloading (the Mac's web view
+        # can reload a page left in the background): {result, at, cleared}. A check that finds
+        # nothing doesn't clear it (GitHub unreachable, a check while waking up); only the
+        # person's CLEAR (cleared = what they cleared), UPDATE NOW, or a full check that
+        # reached everything and found nothing
+        self.flag = None
 
     def snapshot(self):
         """Note what the Mod Matrix starts with: perkons-re's commit and each mod repo's
@@ -604,7 +610,30 @@ class Updates:
                 return self.last[1]
             out = self._check(got)
             self.last = (seen, out)
+            self._remember(out, quiet)
             return out
+
+    @staticmethod
+    def found_anything(r):
+        return bool(r['app'] or r['restart'] or r['code'] or r['unknown'])
+
+    def _remember(self, out, quiet):
+        if self.found_anything(out):
+            if not self.flag or self.flag['result'] != out:
+                self.flag = {'result': out, 'at': time.time(), 'cleared': self.flag and self.flag['cleared']}
+        elif not quiet and not out['failed']:
+            self.flag = None
+
+    def state(self):
+        """The button's state, no GitHub: {result, at, cleared} or {}."""
+        with self.lock:
+            return dict(self.flag or {})
+
+    def clear(self, key):
+        """CLEAR in the panel: the finding the person has seen (the page's summary of it)."""
+        with self.lock:
+            if self.flag:
+                self.flag['cleared'] = str(key)[:4000]
 
     def _check(self, got):
         out = {'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [], 'code': [],
@@ -670,6 +699,7 @@ class Updates:
                 framework, notice = self.frameworks.prepare(self.server.runtime.info)
             self.server.restart(framework)
             self.last = None
+            self.flag = None
         threading.Thread(target=self.snapshot, daemon=True).start()
         return notice
 
@@ -845,6 +875,8 @@ class Shell:
                         return self.send_json({'mods': shell.guides.mods(fresh=q.get('fresh') == ['1'])})
                     if url.path == '/updates/check' and shell.updates:
                         return self.send_json(shell.updates.check(quiet=q.get('quiet') == ['1']))
+                    if url.path == '/updates/state' and shell.updates:
+                        return self.send_json(shell.updates.state())
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
@@ -874,6 +906,11 @@ class Shell:
                 try:
                     if self.path == '/updates/apply' and shell.updates:
                         return self.send_json({'notice': shell.updates.apply()})
+                    if self.path == '/updates/clear' and shell.updates:
+                        n = int(self.headers.get('Content-Length') or 0)
+                        body = json.loads(self.rfile.read(min(n, 8192)) or b'{}')
+                        shell.updates.clear(body.get('key', ''))
+                        return self.send_json({})
                     return self.send(HTTPStatus.NOT_FOUND, 'not found', 'text/plain')
                 except LaunchError as e:
                     return self.send_json({'error': str(e)}, HTTPStatus.BAD_GATEWAY)

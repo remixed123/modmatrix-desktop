@@ -7,7 +7,10 @@
  * It also checks by itself, quietly: once the Mod Matrix has been running AUTO minutes, and
  * then each time the last check is AUTO minutes old (so hourly), while the window isn't
  * minimised; coming back to the window runs a check that is due straight away. Nothing
- * pops up: the button turns yellow (UPDATES AVAILABLE) and its tooltip says what was found.
+ * pops up: the button turns yellow (UPDATES AVAILABLE / UPDATES FOUND) and its tooltip says what
+ * was found. It stays so until the person presses CLEAR in the panel (or UPDATE NOW): a check
+ * that finds nothing doesn't clear it, and the launcher keeps it (/updates/state), so a page
+ * reload doesn't lose it.
  * The quiet check costs GitHub a few small requests; the launcher reads the repos and asks
  * GitHub's API only when something is new (?quiet=1). */
 "use strict";
@@ -21,7 +24,7 @@
   const AUTO = Math.max(1, Number(document.querySelector('meta[name="pmm-auto-check"]')?.content) || 60) * 60000;
   let lastCheck = null;
   let found = null;                         // {result, at}: the last check that found something
-  let seen = null;                          // the code-only finding the person has closed: not flagged again
+  let seen = null;                          // the finding the person has cleared: not flagged again
   let busy = false;
 
   /* its tooltip (tips.js) says how long since the app got the latest */
@@ -50,15 +53,19 @@
     return parts.join(" \u00b7 ");
   }
 
-  /* the button: solid yellow UPDATES AVAILABLE when an update needs the person (UPDATE NOW or a
-   * new app); yellow outline UPDATES FOUND when only mods' code changed (in the next build), until
-   * the person closes the panel on it. Checks compare with the Mod Matrix's start, so the same
-   * code changes come back every time: once seen, only something new flags the button again */
-  const needsAction = () => Boolean(found && (found.result.restart || found.result.app));
-  function setButton(r) {
-    if (r) found = summary(r) ? { result: r, at: (found && summary(found.result) === summary(r)) ? found.at : Date.now() } : null;
+  /* the button: solid yellow UPDATES AVAILABLE when an update needs the person (UPDATE NOW, or a
+   * new app not yet cleared); yellow outline UPDATES FOUND when only mods' code changed (in the
+   * next build). It stays until the person presses CLEAR (UPDATE NOW stays until done). Checks
+   * compare with the Mod Matrix's start, so the same changes come back every time: once cleared,
+   * only something new flags the button again. A check that finds nothing keeps the button as it
+   * is, unless the person ran it (full) and it reached everything */
+  const isNew = () => Boolean(found) && summary(found.result) !== seen;
+  const needsAction = () => Boolean(found && (found.result.restart || (found.result.app && isNew())));
+  function setButton(r, full) {
+    if (r && summary(r)) found = { result: r, at: (found && summary(found.result) === summary(r)) ? found.at : Date.now() };
+    else if (r && full && !r.failed.length) found = null;
     const act = needsAction();
-    const noted = Boolean(found) && !act && summary(found.result) !== seen;
+    const noted = !act && isNew();
     btn.classList.toggle("found", act);
     btn.classList.toggle("noted", noted);
     btn.textContent = act ? "UPDATES AVAILABLE" : noted ? "UPDATES FOUND" : "CHECK FOR UPDATES";
@@ -78,14 +85,18 @@
     panel.hidden = false;
     btn.setAttribute("aria-expanded", "true");
   }
-  function close() {
+  function close() {                        // hides the panel; the button stays as it is
     if (busy === "apply") return;
     panel.hidden = true;
     btn.setAttribute("aria-expanded", "false");
-    if (found && !needsAction()) {           // code-only: seen, nothing to do
-      seen = summary(found.result);
-      setButton();
-    }
+  }
+  function clear() {                        // CLEAR: the person has seen it (not UPDATE NOW's changes)
+    close();
+    if (!found || found.result.restart) return;
+    seen = summary(found.result);
+    setButton();
+    fetch("/updates/clear", { method: "POST", headers: { "X-PMM": "1", "Content-Type": "application/json" },
+      body: JSON.stringify({ key: seen }) }).catch(() => { /* kept on the page only */ });
   }
   function button(label, onClick, primary) {
     const b = node("button", primary ? "primary" : "", label);
@@ -150,10 +161,12 @@
         "you ticked are cleared: load your firmware again afterwards. Wait for a build in progress to finish first."));
       button("LATER", close);
       button("UPDATE NOW", apply, true).focus();
+    } else if (summary(r)) {
+      button("CLEAR", clear).focus();
     } else {
       button("CLOSE", close).focus();
     }
-    setButton(r);
+    setButton(r, true);
   }
 
   async function check() {
@@ -236,6 +249,14 @@
   window.addEventListener("blur", () => { /* the Mod Matrix frame took a click */
     if (!panel.hidden && document.activeElement === $("matrix")) close();
   });
+
+  // what the launcher found before this page loaded (the page may have been reloaded)
+  fetch("/updates/state").then((r) => r.json()).then((st) => {
+    if (!st.result || found) return;
+    found = { result: st.result, at: st.at * 1000 };
+    seen = st.cleared || null;
+    setButton();
+  }).catch(() => { /* none */ });
 
   // after UPDATE NOW: say what happened
   let notice = null;

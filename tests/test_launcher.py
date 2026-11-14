@@ -315,10 +315,11 @@ class TestShell(unittest.TestCase):
     def test_apply_needs_the_page(self):
         import http.client
         for headers in [{}, {'X-PMM': '1', 'Origin': 'http://evil.example'}, {'X-PMM': '1', 'Host': 'evil.example:80'}]:
-            c = http.client.HTTPConnection(self.url[len('http://'):-1], timeout=5)
-            c.request('POST', '/updates/apply', headers=headers)
-            self.assertEqual(c.getresponse().status, 403, headers)
-            c.close()
+            for path in ['/updates/apply', '/updates/clear']:
+                c = http.client.HTTPConnection(self.url[len('http://'):-1], timeout=5)
+                c.request('POST', path, headers=headers)
+                self.assertEqual(c.getresponse().status, 403, (path, headers))
+                c.close()
 
 
 def option(repo, name, title, **kw):
@@ -425,6 +426,34 @@ class TestUpdates(unittest.TestCase):
         self.web.files[R] = ['voice-akords/x.c']
         self.assertEqual([m['title'] for m in self.up.check(quiet=True)['code']], ['Akords'])
         self.assertEqual(len(calls), 3)
+
+    def test_the_button_stays_until_cleared(self):
+        self.assertEqual(self.up.state(), {})
+        self.web.heads[R] = SHA2
+        self.web.files[R] = ['voice-akords/x.c']
+        self.up.check(quiet=True)
+        at = self.up.state()['at']
+        self.assertEqual([m['title'] for m in self.up.state()['result']['code']], ['Akords'])
+        del self.web.heads[R]                                    # GitHub unreachable: kept
+        self.assertTrue(self.up.check(quiet=True)['failed'])
+        self.assertEqual(self.up.check()['code'], [])
+        self.assertEqual(self.up.state()['at'], at)
+        self.web.heads[R] = SHA1                                 # nothing new any more: kept, unless the
+        self.assertFalse(self.up.found_anything(self.up.check(quiet=True)))     # person looks (full check)
+        self.assertEqual(self.up.state()['at'], at)
+        self.web.heads[R] = SHA2
+        self.up.check(quiet=True)
+        self.up.clear('Akords')
+        self.assertEqual(self.up.state()['cleared'], 'Akords')   # the page compares it with what it shows
+        self.up.check(quiet=True)
+        self.assertEqual(self.up.state()['cleared'], 'Akords')
+        self.web.heads[R] = SHA1
+        self.up.check()
+        self.assertEqual(self.up.state(), {})
+        self.web.heads[R] = SHA2
+        self.up.check()
+        self.up.apply()                                          # UPDATE NOW: a new start, nothing found yet
+        self.assertEqual(self.up.state(), {})
 
     def test_a_new_mod_matrix_needs_a_restart(self):
         self.web.heads[L.FRAMEWORK_REPO] = SHA2

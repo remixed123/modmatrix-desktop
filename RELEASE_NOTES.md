@@ -1,4 +1,8 @@
-**New in 0.5.0: check for updates.**
+**New in 0.5.1:** a yellow **UPDATES AVAILABLE** or **UPDATES FOUND** button now stays yellow
+until you click it and press **CLEAR**, even if the app sits in the background for hours or your
+Mac sleeps. An update to the Mod Matrix itself stays until you press **UPDATE NOW**.
+
+**In 0.5.0: check for updates.**
 
 * **CHECK FOR UPDATES** (top right) shows what has changed since the app started: a newer Mod
   Matrix, new, removed or changed mods, mods with new code, or a new version of this app.
