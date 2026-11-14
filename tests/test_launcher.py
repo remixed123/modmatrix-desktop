@@ -312,6 +312,134 @@ class TestShell(unittest.TestCase):
     def test_other_hosts_are_refused(self):
         self.assertEqual(self.get('/guides/mods', host='evil.example:80')[0], 403)
 
+    def test_apply_needs_the_page(self):
+        import http.client
+        for headers in [{}, {'X-PMM': '1', 'Origin': 'http://evil.example'}, {'X-PMM': '1', 'Host': 'evil.example:80'}]:
+            c = http.client.HTTPConnection(self.url[len('http://'):-1], timeout=5)
+            c.request('POST', '/updates/apply', headers=headers)
+            self.assertEqual(c.getresponse().status, 403, headers)
+            c.close()
+
+
+def option(repo, name, title, **kw):
+    return {'id': f'{repo}:{name}', 'title': title, 'summary': '', 'repo': repo, 'ref': 'main', 'dir': name,
+            'kind': 'mod', 'memory': {'v1.3.0': {'main': 10}}, 'requires': [], 'local': None, **kw}
+
+
+K, R = 'kiteless/perkons-re-mods', 'remixed123/perkons-re-mods'
+OLD = [option(K, 'fx-reverb', 'FX REVERB'), option(R, 'voice-akords', 'Akords'), option(R, 'voice-kick-lab', 'Kick Lab'),
+       option(K, 'gone', 'Gone')]
+
+
+class FakeServer:
+    url = MATRIX
+
+    def __init__(self, now):
+        self.now, self.framework, self.restarted = now, '/fw/old', []
+        self.runtime = type('R', (), {'info': RUNTIME})()
+
+    def fresh_options(self):
+        return self.now
+
+    def restart(self, framework):
+        self.restarted.append(framework)
+
+
+class UpdatesWeb:
+    """GitHub for the update check: branch commits, compares, the Mod Matrix's list."""
+    def __init__(self):
+        self.heads = {L.FRAMEWORK_REPO: SHA1, K: SHA1, R: SHA1}
+        self.files = {}
+        self.compare_refused = False
+
+    def __call__(self, url, accept=None, timeout=None):
+        if url == MATRIX + 'api/mods':
+            return json.dumps({'options': OLD}).encode()
+        for repo, sha in self.heads.items():
+            if url == L.GIT_REFS_URL.format(repo=repo):
+                return f'003d{sha} refs/heads/main\n0000'.encode()
+            if url.startswith(f'https://api.github.com/repos/{repo}/compare/'):
+                if self.compare_refused:
+                    raise urllib.error.HTTPError(url, 403, 'rate limit exceeded', {}, None)
+                return json.dumps({'commits': [{'commit': {'message': 'First\n\nmore'}}, {'commit': {'message': 'Second'}}],
+                                   'files': [{'filename': f} for f in self.files.get(repo, [])]}).encode()
+        raise OSError(f'404 {url}')
+
+
+class TestUpdates(unittest.TestCase):
+    def setUp(self):
+        self.web, self.saved = UpdatesWeb(), (L.FETCH, L.REDIRECT)
+        L.FETCH = self.web
+        L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v{L.APP_VERSION}'
+        self.server = FakeServer({'options': [dict(o) for o in OLD], 'failed': []})
+        fw = type('F', (), {'current': lambda self: (SHA1, '/fw/old'),
+                            'prepare': lambda self, info: ('/fw/new', None)})()
+        self.up = L.Updates(self.server, fw, lambda msg: None)
+        self.up.snapshot()
+
+    def tearDown(self):
+        L.FETCH, L.REDIRECT = self.saved
+
+    def test_nothing_changed(self):
+        r = self.up.check()
+        self.assertFalse(any(r.values()), r)
+
+    def test_mods_added_removed_and_changed_need_a_restart(self):
+        now = [o for o in self.server.now['options'] if o['title'] != 'Gone']
+        now[1]['memory'] = {'v1.3.0': {'main': 12}}
+        now[1]['summary'] = 'new words'
+        now.append(option(R, 'voice-synth-lab', 'Synth Lab'))
+        self.server.now = {'options': now, 'failed': []}
+        r = self.up.check()
+        self.assertEqual([m['title'] for m in r['added']], ['Synth Lab'])
+        self.assertEqual([m['title'] for m in r['removed']], ['Gone'])
+        self.assertEqual([(m['title'], m['what']) for m in r['changed']], [('Akords', ['RAM figures', 'description'])])
+        self.assertTrue(r['restart'])
+
+    def test_a_repo_that_fails_removes_nothing(self):
+        self.server.now = {'options': [o for o in OLD if o['repo'] == R], 'failed': [[K, 'down']]}
+        r = self.up.check()
+        self.assertEqual((r['removed'], r['restart'], r['failed']), ([], False, [[K, 'down']]))
+
+    def test_code_changes_need_nothing(self):
+        self.web.heads[R] = SHA2
+        self.web.files[R] = ['voice-kick-lab/src/m7/kick_lab.c', 'README.md']
+        r = self.up.check()
+        self.assertEqual(([m['title'] for m in r['code']], r['restart']), (['Kick Lab'], False))
+        self.web.compare_refused = True
+        self.assertEqual([m['title'] for m in self.up.check()['code']], ['Kick Lab'])    # asked once, kept
+        self.up.compares.clear()
+        r = self.up.check()
+        self.assertEqual((r['code'], r['unknown']), ([], [R]))
+
+    def test_quiet_check_reuses_the_last_result_while_github_has_nothing_new(self):
+        calls = []
+        fresh = self.server.fresh_options
+        self.server.fresh_options = lambda: calls.append(1) or fresh()
+        self.up.check(quiet=True)
+        self.up.check(quiet=True)
+        self.assertEqual(len(calls), 1)                          # the repos read once
+        self.up.check()                                          # the button: always read again
+        self.assertEqual(len(calls), 2)
+        self.web.heads[R] = SHA2                                 # something new: read again
+        self.web.files[R] = ['voice-akords/x.c']
+        self.assertEqual([m['title'] for m in self.up.check(quiet=True)['code']], ['Akords'])
+        self.assertEqual(len(calls), 3)
+
+    def test_a_new_mod_matrix_needs_a_restart(self):
+        self.web.heads[L.FRAMEWORK_REPO] = SHA2
+        r = self.up.check()
+        self.assertEqual((r['framework']['commits'], r['restart']), (['Second', 'First'], True))
+        self.up.apply()
+        self.assertEqual(self.server.restarted, ['/fw/new'])
+
+    def test_a_newer_app(self):
+        L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v99.0.0'
+        r = self.up.check()
+        self.assertEqual((r['app']['version'], r['restart']), ('99.0.0', False))
+        L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v0.0.9'
+        self.assertIsNone(self.up.check()['app'])
+
 
 if __name__ == '__main__':
     unittest.main()

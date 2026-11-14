@@ -47,7 +47,7 @@ async function loadMods(fresh = false) {
       state.docs.clear();                              // the guides too: fetched again when shown
       const added = before.size ? state.mods.filter((m) => !before.has(m.id)) : [];
       note.textContent = added.length
-        ? `New: ${added.map((m) => m.title).join(", ")}. To build with ${added.length > 1 ? "them" : "it"}, restart the app (the Mod Matrix tab reads the list when the app starts).`
+        ? `New: ${added.map((m) => m.title).join(", ")}. To build with ${added.length > 1 ? "them" : "it"}, use CHECK FOR UPDATES (top right) and UPDATE NOW.`
         : "Up to date: no new mods since the list was loaded. Guides reloaded.";
       noteTimer = setTimeout(() => { note.hidden = true; }, added.length ? 20000 : 4000);
       const cur = state.current && state.mods.find((m) => m.id === state.current.id);
@@ -442,7 +442,7 @@ function guideAt(url) {
 
 for (const t of document.querySelectorAll(".tab")) t.addEventListener("click", () => showView(t.dataset.view));
 $("tabs").addEventListener("keydown", (e) => {
-  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || !e.target.classList.contains("tab")) return;
   const next = document.activeElement.id === "tab-matrix" ? "guides" : "matrix";
   showView(next);
   $("tab-" + next).focus();

@@ -92,6 +92,30 @@ Other links open in your web browser; **View on GitHub** shows the guide in its 
 Guides come from the mods' repos, so they're always the current ones. Each guide you open is
 kept: offline, the app shows the copy from your last visit and says so.
 
+## Updates
+
+New mods, engines and features are added all the time. The app gets the newest Mod Matrix
+and mod list each time it starts; if you keep it open, check for updates regularly: press
+**CHECK FOR UPDATES** (top right; hold the pointer over it to see how long ago the Mod Matrix
+started and when you last checked) to see what has changed since:
+
+* **Mod Matrix**, or **new**, **removed** or **changed** mods (RAM figures, requirements): press
+  **UPDATE NOW** to start the Mod Matrix again with them, without quitting the app. The
+  firmware you loaded and the mods you ticked are cleared, so load your firmware again
+  afterwards. Wait for a build in progress to finish first. **LATER** leaves things as they are.
+* **Updated code** in a mod you can already pick: nothing to do, the next build uses it.
+* **A new version of this app**: a link to download it.
+
+While the app stays open it also checks by itself, about once an hour when its window is in
+front. Nothing pops up; the button turns yellow instead:
+
+* **UPDATES AVAILABLE** (solid yellow): something to update (UPDATE NOW) or a new version of
+  the app to download.
+* **UPDATES FOUND** (yellow outline): only mods' code changed; your next build uses it.
+  Click it and CLOSE: the button clears until something new is found.
+
+Hold the pointer over the button to see what was found; click it for the details.
+
 ## Help
 
 * **Something went wrong:** the app writes a log, `launcher.log`, in its data folder:
@@ -126,6 +150,13 @@ The window shows the launcher's own page (`launcher/ui/`): the Mod Matrix in a f
 tab and the user guides on the other. The guides list comes from the Mod Matrix's mod list
 (Refresh reads the repos again with perkons-re's own `perkons.repos`, run by the bundled Python);
 each README is fetched from GitHub and rendered with marked and DOMPurify (both bundled).
+CHECK FOR UPDATES compares perkons-re's and each mod repo's branch with the commit it was at
+when the Mod Matrix started (git's ref list, no API limit; GitHub's compare API, one call per
+changed repo, names the commits and the mods touched), and the Mod Matrix's mod list with the
+repos read again; UPDATE NOW installs the newest perkons-re and restarts the Mod Matrix.
+The automatic check (hourly, window in front) only reads the branches and the latest release
+(a few small requests, no API calls); it reads the repos and asks the API only when something
+is new, and compare answers are kept. `MODMATRIX_AUTO_CHECK_MINUTES` shortens its hour, to try it.
 An update of perkons-re that needs other Python packages than the app holds is not used
 (the app keeps the one it has and says so).
 

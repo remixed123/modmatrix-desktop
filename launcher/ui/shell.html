@@ -3,16 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="pmm-auto-check" content="{{AUTO_CHECK}}">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; frame-src {{MATRIX_ORIGIN}}; base-uri 'none'; form-action 'none'">
 <title>{{TITLE}}</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/ui/shell.css">
 </head>
 <body>
-<nav id="tabs" role="tablist" aria-label="Views">
-  <button class="tab" role="tab" id="tab-matrix" aria-controls="matrix" aria-selected="true" data-view="matrix">MOD MATRIX</button>
-  <button class="tab" role="tab" id="tab-guides" aria-controls="guides" aria-selected="false" data-view="guides">USER GUIDES</button>
-</nav>
+<header id="tabs">
+  <nav role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-matrix" aria-controls="matrix" aria-selected="true" data-view="matrix"
+      aria-describedby="tip-matrix">MOD MATRIX</button>
+    <button class="tab" role="tab" id="tab-guides" aria-controls="guides" aria-selected="false" data-view="guides"
+      aria-describedby="tip-guides">USER GUIDES</button>
+  </nav>
+  <button id="check" type="button" aria-haspopup="dialog" aria-controls="updates" aria-expanded="false"
+    aria-describedby="check-tip">CHECK FOR UPDATES</button>
+</header>
+<div id="tip-matrix" class="tip" role="tooltip" hidden>
+  <strong>Build your modded firmware here.</strong>
+  Load your official Pērkons firmware, choose the mod repos, tick the mods and voice engines
+  you want, and press PATCH IT. Then download the new firmware file and copy it to the SD card.
+</div>
+<div id="tip-guides" class="tip" role="tooltip" hidden>
+  <strong>Every mod and engine, explained.</strong>
+  Learn how to use the mods on your Pērkons (controls, pages, presets), and browse what each
+  one does to choose what to include in your next build. No firmware needed to read them.
+</div>
+<div id="check-tip" class="tip" role="tooltip" hidden>
+  <strong>New mods, engines and features are added all the time.</strong>
+  The app gets the latest when it starts, and while it stays open it checks again by itself about
+  once an hour: this button turns yellow when it finds something. Click to check now, see what
+  changed and update without quitting.
+  <span id="check-found"></span>
+  <span id="check-when"></span>
+</div>
+
+<section id="updates" role="dialog" aria-labelledby="updates-title" hidden>
+  <h2 id="updates-title">Updates</h2>
+  <div id="updates-body" aria-live="polite"></div>
+  <div id="updates-actions"></div>
+</section>
 
 <div id="stage">
   <iframe id="matrix" role="tabpanel" aria-labelledby="tab-matrix" title="Mod Matrix" src="{{MATRIX_URL}}"></iframe>
@@ -44,5 +75,7 @@
 <script src="/ui/vendor/marked.umd.js"></script>
 <script src="/ui/vendor/purify.min.js"></script>
 <script src="/ui/guides.js"></script>
+<script src="/ui/tips.js"></script>
+<script src="/ui/updates.js"></script>
 </body>
 </html>

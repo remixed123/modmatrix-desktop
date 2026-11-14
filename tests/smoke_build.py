@@ -122,6 +122,9 @@ def main():
         fresh = api(page, '/guides/mods?fresh=1')['mods']
         print('guides after refresh:', len(fresh))
         assert {g['id'] for g in fresh} == {o['id'] for o in now['options']}, fresh
+        upd = api(page, '/updates/check')         # CHECK FOR UPDATES: just started, so nothing to restart for
+        print('updates:', {k: v for k, v in upd.items() if v})
+        assert not upd['restart'] and not upd['failed'], upd
         if not a.image:
             print('no image: stopping before the build')
             return

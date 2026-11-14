@@ -34,13 +34,17 @@ import zipfile
 
 APP_NAME = 'Perkons Mod Matrix Desktop'
 DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
-APP_VERSION = '0.4.0'
+APP_VERSION = '0.5.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'
 # git's own ref list: no API rate limit (60 an hour per address, shared on some networks)
-REFS_URL = f'https://github.com/{FRAMEWORK_REPO}.git/info/refs?service=git-upload-pack'
+REFS_URL = f'https://github.com/{FRAMEWORK_REPO}.git/info/refs?service=git-upload-pack'   # = GIT_REFS_URL for it
 ZIP_URL = 'https://codeload.github.com/' + FRAMEWORK_REPO + '/zip/{sha}'
+GIT_REFS_URL = 'https://github.com/{repo}.git/info/refs?service=git-upload-pack'
+COMPARE_URL = 'https://api.github.com/repos/{repo}/compare/{old}...{new}'
+APP_REPO = 'remixed123/modmatrix-desktop'
+APP_LATEST_URL = f'https://github.com/{APP_REPO}/releases/latest'      # redirects to the newest release
 TIMEOUT = 20
 SERVER_START_TIMEOUT = 120
 KEEP_FRAMEWORKS = 2
@@ -159,6 +163,36 @@ def fetch(url, accept=None, timeout=TIMEOUT):
 FETCH = fetch          # tests replace it
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def redirect_target(url, timeout=TIMEOUT):
+    """Where `url` redirects to (its Location), without following it; None if it doesn't."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(url, headers={'User-Agent': f'perkons-mod-matrix-desktop/{APP_VERSION}'}, method='HEAD')
+    try:
+        with opener.open(req, timeout=timeout):
+            return None
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            return e.headers.get('Location')
+        raise
+
+
+REDIRECT = redirect_target   # tests replace it
+
+
+def ref_commit(repo, ref='main'):
+    """The commit a branch is at, from git's own ref list (no GitHub API rate limit)."""
+    refs = FETCH(GIT_REFS_URL.format(repo=repo)).decode('ascii', 'replace')
+    m = re.search(r'([0-9a-f]{40}) refs/heads/' + re.escape(ref) + r'(?=[\s\x00]|$)', refs)
+    if not m:
+        raise LaunchError(f'no branch {ref} in {repo}')
+    return m.group(1)
+
+
 def parse_requirements(text):
     """{name: version} for the 'name==version' lines of a requirements.txt."""
     out = {}
@@ -205,9 +239,7 @@ class Frameworks:
             sha = FETCH(COMMIT_URL, accept='application/vnd.github.sha').decode().strip()
         except urllib.error.HTTPError as e:
             self.log(f'GitHub API: {e}; asking git instead')
-            refs = FETCH(REFS_URL).decode('ascii', 'replace')
-            m = re.search(r'([0-9a-f]{40}) refs/heads/' + re.escape(FRAMEWORK_REF) + r'\b', refs)
-            sha = m.group(1) if m else refs[:80]
+            sha = ref_commit(FRAMEWORK_REPO, FRAMEWORK_REF)
         if not re.fullmatch(r'[0-9a-f]{40}', sha):
             raise LaunchError(f'unexpected answer from GitHub for {FRAMEWORK_REPO}: {sha[:80]!r}')
         return sha
@@ -350,16 +382,15 @@ runpy.run_path(sys.argv[0], run_name="__main__")
 '''
 
 # The repo list and every repo's manifest, read again now with the framework's own code (the
-# Mod Matrix reads them once, at start): {options: [the fields the guides use], failed: [[repo, why]]}.
+# Mod Matrix reads them once, at start): {options: [as the Mod Matrix's], failed: [[repo, why]]}.
 REFRESH = '''
 import json, sys
 sys.path.insert(0, "tools")
 from perkons import repos
-KEEP = ("id", "title", "summary", "kind", "repo", "ref", "dir", "author", "readme")
 out, failed = [], []
 for r in repos.config():
     try:
-        out += [{k: o.get(k) for k in KEEP} for o in repos.options(repos.manifest(r["repo"], r["ref"]), r["ref"])]
+        out += repos.options(repos.manifest(r["repo"], r["ref"]), r["ref"])
     except Exception as e:
         failed.append([r["repo"], str(e)])
 sys.stdout.write(json.dumps({"options": out, "failed": failed}))
@@ -420,6 +451,30 @@ class Server:
         if self.shell:
             self.shell.stop()
             self.shell = None
+        self.stop_matrix()
+
+    def restart(self, framework):
+        """The Mod Matrix again (the app's page keeps running), on `framework`; back on the
+        one before if it won't start. Returns its url."""
+        old = self.framework
+        self.stop_matrix()
+        self.framework, self.url = framework, None
+        try:
+            self.start()
+        except LaunchError:
+            if framework == old:
+                raise
+            self.log(f'the new Mod Matrix did not start; back to {old}')
+            self.stop_matrix()
+            self.framework, self.url = old, None
+            self.start()
+            raise LaunchError('The updated Mod Matrix did not start, so the app went back to the one it had. '
+                              'Details are in the log file.') from None
+        if self.shell:
+            self.shell.set_matrix(self.url)
+        return self.url
+
+    def stop_matrix(self):
         p = self.proc
         if not p or p.poll() is not None:
             return
@@ -431,6 +486,192 @@ class Server:
             p.kill()
             p.wait(5)
         shutil.rmtree(work_dir(self.data), ignore_errors=True)
+
+
+# -- CHECK FOR UPDATES ---------------------------------------------------------------------------
+#
+# What changed since the Mod Matrix started: the app itself (a newer release), perkons-re (only
+# used after a restart), the mods offered (the Mod Matrix reads the list, RAM figures and
+# requirements once, at start: a restart needed) and mods whose code changed (a build fetches a
+# mod's code as it is then: nothing to do). UPDATE NOW restarts the Mod Matrix inside the app.
+
+# a mod's fields that matter for building, and what to call a change of them
+CHANGE_NAMES = (('memory', 'RAM figures'), ('requires', 'requirements'), ('conflicts', 'conflicts'),
+                ('target', 'firmware version'), ('patches', 'build settings'), ('code', 'build settings'),
+                ('kind', 'type'), ('dir', 'folder'),
+                ('title', 'description'), ('summary', 'description'), ('description', 'description'))
+MAX_COMMITS = 6
+AUTO_CHECK_MINUTES = 60      # the page's quiet check: after this long running, at most this often
+
+
+def auto_check_minutes():
+    """MODMATRIX_AUTO_CHECK_MINUTES: a shorter time, to try the quiet check (development)."""
+    try:
+        return max(1, int(os.environ.get('MODMATRIX_AUTO_CHECK_MINUTES', AUTO_CHECK_MINUTES)))
+    except ValueError:
+        return AUTO_CHECK_MINUTES
+
+
+def version_tuple(text):
+    return tuple(int(n) for n in re.findall(r'\d+', text or '')[:3])
+
+
+def first_line(msg, width=140):
+    line = (msg or '').strip().splitlines()[0] if (msg or '').strip() else ''
+    return line if len(line) <= width else line[:width - 1].rstrip() + '\u2026'
+
+
+class Updates:
+    def __init__(self, server, frameworks, log):
+        self.server, self.frameworks, self.log = server, frameworks, log
+        self.lock = threading.Lock()
+        self.base = {'framework': None, 'repos': {}}
+        self.compares = {}          # (repo, old, new) -> compare(): commits don't change
+        self.last = None            # (what GitHub had, the result): a quiet check with nothing new reuses it
+
+    def snapshot(self):
+        """Note what the Mod Matrix starts with: perkons-re's commit and each mod repo's
+        (in the background: the repos take the Mod Matrix a moment to read)."""
+        base = {'framework': self.frameworks.current()[0] if self.frameworks and self.frameworks.current() else None,
+                'repos': {}}
+        try:
+            for repo, ref in sorted(self.repos(self.matrix_options())):
+                try:
+                    base['repos'][(repo, ref)] = ref_commit(repo, ref)
+                except Exception as e:
+                    self.log(f'updates: {repo} {ref}: {e}')
+        except Exception as e:
+            self.log(f'updates: the mod list: {e}')
+        self.base = base
+
+    def matrix_options(self):
+        return json.loads(FETCH(self.server.url + 'api/mods', timeout=SERVER_START_TIMEOUT))['options']
+
+    @staticmethod
+    def repos(options):
+        return {(o['repo'], o.get('ref') or 'main') for o in options if o.get('repo') and not o.get('local')}
+
+    def compare(self, repo, old, new):
+        """(first lines of the commit messages, newest first; files changed), or None (the API refused)."""
+        key = (repo, old, new)
+        if key not in self.compares:
+            self.compares[key] = self._compare(repo, old, new)
+            if self.compares[key] is None:
+                del self.compares[key]      # refused (its rate limit): ask again next time
+                return None
+        return self.compares[key]
+
+    def _compare(self, repo, old, new):
+        try:
+            c = json.loads(FETCH(COMPARE_URL.format(repo=repo, old=old, new=new), accept='application/vnd.github+json'))
+        except Exception as e:
+            self.log(f'updates: compare {repo}: {e}')
+            return None
+        msgs = [first_line(x.get('commit', {}).get('message')) for x in reversed(c.get('commits', []))]
+        return {'commits': [m for m in msgs if m][:MAX_COMMITS], 'more': max(0, len(msgs) - MAX_COMMITS),
+                'files': [f['filename'] for f in c.get('files', [])]}
+
+    def probe(self):
+        """What GitHub has now, cheaply (no API calls): the newest app release, and the
+        commit perkons-re and each mod repo are at. {app, framework, repos, failed}."""
+        got = {'app': None, 'framework': None, 'repos': {}, 'failed': []}
+        try:
+            where = REDIRECT(APP_LATEST_URL) or ''
+            if '/releases/tag/' in where:
+                got['app'] = where.rstrip('/').rsplit('/', 1)[-1]
+        except Exception as e:
+            got['failed'].append(['this app', str(e)])
+        if self.base['framework']:
+            try:
+                got['framework'] = ref_commit(FRAMEWORK_REPO, FRAMEWORK_REF)
+            except Exception as e:
+                got['failed'].append([FRAMEWORK_REPO, str(e)])
+        for (repo, ref) in sorted(self.base['repos']):
+            try:
+                got['repos'][(repo, ref)] = ref_commit(repo, ref)
+            except Exception as e:
+                got['failed'].append([repo, str(e)])
+        return got
+
+    def check(self, quiet=False):
+        """What changed since the Mod Matrix started. quiet (the automatic check): when
+        GitHub has nothing new since the last check, that check's result, without reading
+        the repos again."""
+        with self.lock:
+            got = self.probe()
+            seen = json.dumps([got['app'], got['framework'], sorted(got['repos'].items()), bool(got['failed'])])
+            if quiet and self.last and self.last[0] == seen:
+                return self.last[1]
+            out = self._check(got)
+            self.last = (seen, out)
+            return out
+
+    def _check(self, got):
+        out = {'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [], 'code': [],
+               'unknown': [], 'failed': list(got['failed']), 'restart': False}
+        # the app
+        tag = got['app']
+        if tag and version_tuple(tag) > version_tuple(APP_VERSION):
+            out['app'] = {'version': tag.lstrip('v'), 'url': f'https://github.com/{APP_REPO}/releases/tag/{tag}'}
+        # perkons-re
+        old = self.base['framework']
+        new = got['framework']
+        if old and new and new != old:
+            diff = self.compare(FRAMEWORK_REPO, old, new) or {}
+            out['framework'] = {'repo': FRAMEWORK_REPO, 'commits': diff.get('commits', []), 'more': diff.get('more', 0)}
+        # the mods offered: the Mod Matrix's list against the repos now
+        then = {o['id']: o for o in self.matrix_options() if o.get('repo') and not o.get('local')}
+        try:
+            now_all = self.server.fresh_options()
+        except Exception as e:
+            now_all = {'options': [], 'failed': [['the mod repos', str(e)]]}
+            self.log(f'updates: reading the repos: {e}')
+        failed = {r.lower() for r, _ in now_all.get('failed', [])}
+        out['failed'] += now_all.get('failed', [])
+        now = {o['id']: o for o in now_all['options'] if o.get('repo')}
+        title = lambda o: o.get('title') or o['id']
+        info = lambda o: {'id': o['id'], 'title': title(o), 'repo': o['repo']}
+        for i in sorted(set(now) - set(then)):
+            out['added'].append(info(now[i]))
+        for i in sorted(set(then) - set(now)):
+            if then[i]['repo'].lower() not in failed:
+                out['removed'].append(info(then[i]))
+        for i in sorted(set(then) & set(now)):
+            what = []
+            for key, name in CHANGE_NAMES:
+                if then[i].get(key) != now[i].get(key) and name not in what:
+                    what.append(name)
+            if what:
+                out['changed'].append({**info(now[i]), 'what': what})
+        # mods whose code changed (their folders), repo by repo
+        listed = {m['id'] for m in out['added'] + out['changed']}
+        for (repo, ref), old in sorted(self.base['repos'].items()):
+            new = got['repos'].get((repo, ref))
+            if repo.lower() in failed or not new or new == old:
+                continue
+            diff = self.compare(repo, old, new)
+            if diff is None:
+                out['unknown'].append(repo)
+                continue
+            for o in sorted((o for o in now.values() if o['repo'] == repo and o['id'] not in listed), key=title):
+                if any(f.startswith(o['dir'].rstrip('/') + '/') for f in diff['files']):
+                    out['code'].append(info(o))
+        out['restart'] = bool(out['framework'] or out['added'] or out['removed'] or out['changed'])
+        self.log('updates: ' + json.dumps({k: v for k, v in out.items() if v}))
+        return out
+
+    def apply(self):
+        """UPDATE NOW: the newest perkons-re (if there is one), and the Mod Matrix started
+        again, so it reads the repos again. Returns a notice or None."""
+        with self.lock:
+            notice = None
+            framework = self.server.framework
+            if self.frameworks:
+                framework, notice = self.frameworks.prepare(self.server.runtime.info)
+            self.server.restart(framework)
+            self.last = None
+        threading.Thread(target=self.snapshot, daemon=True).start()
+        return notice
 
 
 # -- the app's own page: MOD MATRIX and USER GUIDES tabs ----------------------------------------
@@ -530,11 +771,16 @@ class Guides:
 class Shell:
     """The local web server for the app's page (127.0.0.1, a free port)."""
 
-    def __init__(self, matrix_url, data, log, fresh=None):
+    def __init__(self, matrix_url, data, log, fresh=None, updates=None):
         self.matrix_url = matrix_url
         self.guides = Guides(data, matrix_url, log, fresh)
+        self.updates = updates
         self.log = log
         self.httpd, self.url = None, None
+
+    def set_matrix(self, url):
+        """The Mod Matrix restarted (UPDATE NOW): on a new port."""
+        self.matrix_url = self.guides.matrix_url = url
 
     def start(self):
         from http.server import ThreadingHTTPServer
@@ -558,6 +804,7 @@ class Shell:
         origin = self.matrix_url.rstrip('/')
         return (text.replace('{{MATRIX_URL}}', html.escape(self.matrix_url))
                     .replace('{{MATRIX_ORIGIN}}', html.escape(origin))
+                    .replace('{{AUTO_CHECK}}', str(auto_check_minutes()))
                     .replace('{{TITLE}}', html.escape(TITLE))
                     .replace('{{CREDIT}}', html.escape(CREDIT)))
 
@@ -596,6 +843,8 @@ class Shell:
                         return self.send(HTTPStatus.OK, shell.index(), UI_TYPES['.html'])
                     if url.path == '/guides/mods':
                         return self.send_json({'mods': shell.guides.mods(fresh=q.get('fresh') == ['1'])})
+                    if url.path == '/updates/check' and shell.updates:
+                        return self.send_json(shell.updates.check(quiet=q.get('quiet') == ['1']))
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
@@ -614,6 +863,22 @@ class Shell:
                     return self.send_json({'error': str(e)}, HTTPStatus.BAD_GATEWAY)
                 except Exception as e:
                     shell.log(f'app page {url.path}: {traceback.format_exc()}')
+                    return self.send_json({'error': f'{type(e).__name__}: {e}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+            def do_POST(self):
+                # only the app's own page: the custom header can't be sent by another site's page
+                # without a CORS preflight, which this server never answers
+                if (self.headers.get('Host') != shell.url[len('http://'):-1] or self.headers.get('X-PMM') != '1'
+                        or self.headers.get('Origin', shell.url.rstrip('/')) != shell.url.rstrip('/')):
+                    return self.send(HTTPStatus.FORBIDDEN, 'forbidden', 'text/plain')
+                try:
+                    if self.path == '/updates/apply' and shell.updates:
+                        return self.send_json({'notice': shell.updates.apply()})
+                    return self.send(HTTPStatus.NOT_FOUND, 'not found', 'text/plain')
+                except LaunchError as e:
+                    return self.send_json({'error': str(e)}, HTTPStatus.BAD_GATEWAY)
+                except Exception as e:
+                    shell.log(f'app page {self.path}: {traceback.format_exc()}')
                     return self.send_json({'error': f'{type(e).__name__}: {e}'}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
         return Handler
@@ -640,14 +905,18 @@ def page(msg, small=DISCLAIMER):
 
 def prepare_and_start(args, runtime, data, log, status):
     """Framework, then server, then the app's page. Returns (server, the page's url, notice)."""
+    frameworks = None
     if args.framework:
         framework, notice = os.path.abspath(args.framework), None
     else:
-        framework, notice = Frameworks(data, log).prepare(runtime.info, status)
+        frameworks = Frameworks(data, log)
+        framework, notice = frameworks.prepare(runtime.info, status)
     status('Starting the Mod Matrix...')
     server = Server(runtime, framework, data, log, args.repos_url)
     matrix_url = server.start()
-    server.shell = Shell(matrix_url, data, log, server.fresh_options)
+    updates = Updates(server, frameworks, log)
+    threading.Thread(target=updates.snapshot, daemon=True).start()
+    server.shell = Shell(matrix_url, data, log, server.fresh_options, updates)
     return server, server.shell.start(), notice
 
 

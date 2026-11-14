@@ -1,4 +1,15 @@
-**New in 0.4.0: print, copy and refresh the user guides.**
+**New in 0.5.0: check for updates.**
+
+* **CHECK FOR UPDATES** (top right) shows what has changed since the app started: a newer Mod
+  Matrix, new, removed or changed mods, mods with new code, or a new version of this app.
+* **UPDATE NOW** starts the Mod Matrix again with the changes, without quitting the app (load
+  your firmware again afterwards). Mods whose code alone changed need nothing: your next
+  build uses them.
+* While the app stays open it checks by itself about once an hour. Nothing pops up: the button
+  turns yellow, **UPDATES AVAILABLE** or **UPDATES FOUND**, and its tooltip says what was found.
+* Tooltips on **MOD MATRIX**, **USER GUIDES** and **CHECK FOR UPDATES** explain each one.
+
+**In 0.4.0: print, copy and refresh the user guides.**
 
 * **PRINT** prints the guide you're reading, black on white, or saves it as a PDF.
 * **COPY** copies the whole guide, to paste into a document or a message with its headings and
