@@ -1,4 +1,16 @@
-**New in 0.5.2:** CHECK FOR UPDATES now always shows this app's version too. When a newer
+**New in 0.6.0: a PROCESSOR & MEMORY tab.** It explains how much the Pērkons can do at once.
+
+* **Memory** is looked after for you: the Mod Matrix won't let you tick a mod that doesn't fit.
+* **Processor** is up to you: it depends on which engines play on which voices and how they're
+  set. Too much shows up as crackle on voices 1 and 2.
+* The tab explains the signs of too much processor and what to do, where to put the heavy
+  engines (voices 3 and 4), and rates each engine from light to very heavy.
+* **PLAN A KIT:** choose an engine for each voice to see whether a kit should play clean before
+  you try it.
+* It's a work in progress: the numbers change as engines are updated and as we learn more, so
+  trust your ears.
+
+**In 0.5.2:** CHECK FOR UPDATES now always shows this app's version too. When a newer
 version is out, it says so, with a button that downloads it for your computer (Mac or Windows)
 and a link to what's new.
 

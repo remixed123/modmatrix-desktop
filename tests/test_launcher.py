@@ -295,6 +295,9 @@ class TestShell(unittest.TestCase):
         self.assertIn(f'src="{MATRIX}"'.encode(), body)
         self.assertIn(b'frame-src http://127.0.0.1:5555;', body)
         self.assertNotIn(b'{{', body)
+        for view in [b'matrix', b'guides', b'limits']:
+            self.assertIn(b'data-view="' + view + b'"', body)
+        self.assertIn(b'<script src="/ui/limits.js">', body)
 
     def test_guides_api(self):
         status, body = self.get('/guides/mods')
@@ -305,6 +308,7 @@ class TestShell(unittest.TestCase):
 
     def test_files(self):
         self.assertEqual(self.get('/ui/guides.js')[0], 200)
+        self.assertEqual(self.get('/ui/limits.js')[0], 200)
         self.assertEqual(self.get('/ui/vendor/purify.min.js')[0], 200)
         for path in ['/ui/../modmatrix_launcher.py', '/ui/%2e%2e/modmatrix_launcher.py', '/ui/shell.html', '/ui/x.py']:
             self.assertEqual(self.get(path)[0], 404, path)

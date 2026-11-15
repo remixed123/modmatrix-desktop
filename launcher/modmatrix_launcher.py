@@ -34,7 +34,7 @@ import zipfile
 
 APP_NAME = 'Perkons Mod Matrix Desktop'
 DATA_NAME = 'Perkons Mod Matrix'          # the data folder keeps its 0.1/0.2 name: downloads and offline guides stay
-APP_VERSION = '0.5.2'
+APP_VERSION = '0.6.0'
 FRAMEWORK_REPO = 'kiteless/perkons-re'
 FRAMEWORK_REF = 'main'
 COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}'

@@ -1,4 +1,4 @@
-/* The app's page: MOD MATRIX / USER GUIDES tabs, and the user guides (each mod's README).
+/* The app's page: MOD MATRIX / USER GUIDES / PROCESSOR & MEMORY tabs, and the user guides (each mod's README).
  * The mod list comes from the launcher (/guides/mods: the Mod Matrix's mods, all repos, A-Z);
  * each README from /guides/readme (GitHub, or the copy from last time when offline). README
  * HTML is cleaned with DOMPurify: the READMEs come from other people's repos. */
@@ -18,6 +18,8 @@ function showView(view) {
   for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.view === view));
   $("matrix").classList.toggle("off", view !== "matrix");
   $("guides").hidden = view !== "guides";
+  $("limits").hidden = view !== "limits";
+  document.body.dataset.view = view;                    // print styles: the view on screen
   if (view === "guides" && !state.mods.length && !state.loading) loadMods();
 }
 
@@ -443,7 +445,9 @@ function guideAt(url) {
 for (const t of document.querySelectorAll(".tab")) t.addEventListener("click", () => showView(t.dataset.view));
 $("tabs").addEventListener("keydown", (e) => {
   if ((e.key !== "ArrowLeft" && e.key !== "ArrowRight") || !e.target.classList.contains("tab")) return;
-  const next = document.activeElement.id === "tab-matrix" ? "guides" : "matrix";
+  const views = [...document.querySelectorAll(".tab")].map((t) => t.dataset.view);
+  const at = views.indexOf(e.target.dataset.view);
+  const next = views[(at + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length];
   showView(next);
   $("tab-" + next).focus();
 });

@@ -92,6 +92,20 @@ Other links open in your web browser; **View on GitHub** shows the guide in its 
 Guides come from the mods' repos, so they're always the current ones. Each guide you open is
 kept: offline, the app shows the copy from your last visit and says so.
 
+## Processor and memory
+
+Click the **PROCESSOR & MEMORY** tab to see how much the Pērkons can do at once.
+
+* **Memory** is looked after for you: the Mod Matrix won't let you tick a mod that doesn't fit.
+* **Processor** is up to you: it depends on which engines play on which voices and how
+  they're set. Too much shows up as crackle on voices 1 and 2, so put the heavy engines on
+  voices 3 and 4.
+
+The tab explains the signs of too much processor and what to do, rates each engine from
+light to very heavy, and has **PLAN A KIT**: choose an engine for each voice to see whether
+a kit should play clean before you try it. It's a work in progress: the numbers change as
+engines are updated and as we learn more, so trust your ears.
+
 ## Updates
 
 New mods, engines and features are added all the time. The app gets the newest Mod Matrix
@@ -150,7 +164,8 @@ perkons-re (`main`) as a zip from GitHub, or uses the last one when offline, and
 Mod Matrix with the bundled Python and compiler. The Mod Matrix gets the mods itself, from
 the repos in [repos.json](https://github.com/kiteless/perkons-re-mods/blob/main/repos.json).
 The window shows the launcher's own page (`launcher/ui/`): the Mod Matrix in a frame on one
-tab and the user guides on the other. The guides list comes from the Mod Matrix's mod list
+tab, the user guides on another, and the PROCESSOR & MEMORY page (its engine costs and the
+limits are in `launcher/ui/limits.js`; update them when an engine's cost changes). The guides list comes from the Mod Matrix's mod list
 (Refresh reads the repos again with perkons-re's own `perkons.repos`, run by the bundled Python);
 each README is fetched from GitHub and rendered with marked and DOMPurify (both bundled).
 CHECK FOR UPDATES compares perkons-re's and each mod repo's branch with the commit it was at
