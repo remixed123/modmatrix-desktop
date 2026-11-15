@@ -15,9 +15,10 @@ newest Mod Matrix each time it starts, so you always get kiteless's latest versi
 ## Download
 
 * **[Download for Mac](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-macOS.dmg)**: Apple Silicon (M1 or later),
-  macOS 11 or later.
+  **macOS 11.3 (Big Sur) or later**.
 * **[Download for Intel Mac](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-macOS-Intel.dmg)**: Macs with an Intel
-  processor, macOS 11 or later.
+  processor, **macOS 12 (Monterey) or later**. It won't run on older versions (10.14 Mojave,
+  10.15 Catalina, 11 Big Sur).
 * **[Download for Windows](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-Windows.zip)**: Windows 10 or 11, 64-bit.
 
 Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/releases).
