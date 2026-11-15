@@ -138,11 +138,11 @@
       const mac = r.app.file.endsWith(".dmg");
       const p = node("p", "", `Version ${r.app.version} of Perkons Mod Matrix Desktop is available (you have ${me.version}). `);
       const dl = node("p", "download");
-      dl.append(link(`Download ${r.app.version} for ${mac ? "Mac" : "Windows"}`, r.app.download, "primary"), " ",
+      dl.append(link(`Download ${r.app.version} for ${mac ? (r.app.file.includes("Intel") ? "Intel Mac" : "Mac") : "Windows"}`, r.app.download, "primary"), " ",
         link("What's new", r.app.url));
       const how = node("p", "muted", mac
-        ? "Quit this app, open the downloaded ModMatrixDesktop-macOS.dmg and drag the app to Applications, replacing this one. Your settings and downloads stay."
-        : "Quit this app, extract the downloaded ModMatrixDesktop-Windows.zip and run Perkons Mod Matrix Desktop.exe from it. Your settings and downloads stay.");
+        ? `Quit this app, open the downloaded ${r.app.file} and drag the app to Applications, replacing this one. Your settings and downloads stay.`
+        : `Quit this app, extract the downloaded ${r.app.file} and run Perkons Mod Matrix Desktop.exe from it. Your settings and downloads stay.`);
       section("This app", [p, dl, how]);
     } else if (me.latest) {
       section("This app", [node("p", "ok", `Perkons Mod Matrix Desktop ${me.version}: the latest version.`)]);

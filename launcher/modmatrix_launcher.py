@@ -45,7 +45,23 @@ GIT_REFS_URL = 'https://github.com/{repo}.git/info/refs?service=git-upload-pack'
 COMPARE_URL = 'https://api.github.com/repos/{repo}/compare/{old}...{new}'
 APP_REPO = 'remixed123/modmatrix-desktop'
 APP_LATEST_URL = f'https://github.com/{APP_REPO}/releases/latest'      # redirects to the newest release
-APP_FILE = 'ModMatrixDesktop-Windows.zip' if sys.platform == 'win32' else 'ModMatrixDesktop-macOS.dmg'
+
+
+def _mac_is_intel():
+    """An Intel Mac; not an Apple Silicon Mac running the Intel app under Rosetta (it gets the
+    Apple Silicon download)."""
+    if platform.machine() != 'x86_64':
+        return False
+    try:
+        r = subprocess.run(['/usr/sbin/sysctl', '-n', 'sysctl.proc_translated'], capture_output=True, text=True, timeout=5)
+        return r.stdout.strip() != '1'
+    except (OSError, subprocess.SubprocessError):
+        return True
+
+
+APP_FILE = ('ModMatrixDesktop-Windows.zip' if sys.platform == 'win32'
+            else 'ModMatrixDesktop-macOS-Intel.dmg' if sys.platform == 'darwin' and _mac_is_intel()
+            else 'ModMatrixDesktop-macOS.dmg')
 TIMEOUT = 20
 SERVER_START_TIMEOUT = 120
 KEEP_FRAMEWORKS = 2

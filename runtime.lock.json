@@ -16,6 +16,10 @@
         "capstone==5.0.9 --hash=sha256:fc269c5082e17d7f9f265cd6980e2fdc6ab572df913951d76db0357e06b8001d",
         "unicorn==2.1.4 --hash=sha256:d6c93e0f60328d8f4a1792af3f834137a28050fcc2305f2ec01efe8558a9844e"
       ],
+      "macos-x86_64": [
+        "capstone==5.0.9 --hash=sha256:8c4a1d7134d7d5290e5d77066500385f2c7a4bf66835ccbfde5180042d508b3c",
+        "unicorn==2.1.4 --hash=sha256:2a6f738fab5fabffa56af1e7bbf16ea1e91466c342f8dc64f125bd70f36c6b80"
+      ],
       "windows-x64": [
         "capstone==5.0.9 --hash=sha256:732cedbbb56d42e723f14d7af6387f1454194a820b4b96b56d1e53f865ef85d0",
         "unicorn==2.1.4 --hash=sha256:d7107500c64ce5c168fbff6bef9485b5db1350050036f4cea568650cf8bdbdf5"
@@ -25,6 +29,10 @@
       "macos-arm64": {
         "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-aarch64-apple-darwin-install_only_stripped.tar.gz",
         "sha256": "353d5f1b4fd2715e7053f12f068435d5bbad16b91e057006b5d01e0925709a7e"
+      },
+      "macos-x86_64": {
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-apple-darwin-install_only_stripped.tar.gz",
+        "sha256": "37c38fda76fec1fbf310adcbafb7f0d96af13b5511bf8ea954c3aa8eec185734"
       },
       "windows-x64": {
         "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
@@ -42,6 +50,21 @@
       "macos-arm64": {
         "url": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-darwin-arm64-arm-none-eabi.tar.xz",
         "sha256": "f011e4832046155f06408dda6b252b21b139a8159c8529802227371f06656c60"
+      },
+      "macos-x86_64": {
+        "_comment": "Arm's last Intel Mac build (none after 14.2.rel1): its own version and GPL source",
+        "version": "14.2.rel1",
+        "gcc": "14.2.1",
+        "url": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/14.2.rel1/arm-gnu-toolchain-14.2.rel1-darwin-x86_64-arm-none-eabi.tar.xz",
+        "sha256": "2d9e717dd4f7751d18936ae1365d25916534105ebcb7583039eff1092b824505",
+        "source": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/14.2.rel1/arm-gnu-toolchain-src-snapshot-14.2.rel1.tar.xz",
+        "source_sha256": "e6405f20f8a817a50d92dbf7974d0ee77708dfdf9e79900a59c5d343b464ef9c",
+        "_zstd_comment": "this build's cc1 links Homebrew's /usr/local/opt/zstd: built from source and bundled next to cc1",
+        "zstd": {
+          "version": "1.5.7",
+          "url": "https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz",
+          "sha256": "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3"
+        }
       },
       "windows-x64": {
         "url": "https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2/arm-gnu-toolchain-15.3.rel2-mingw-w64-x86_64-arm-none-eabi.zip",

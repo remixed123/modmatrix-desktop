@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The Intel app's launcher (the window): PyObjC's libffi closures on Intel need writable,
+	     executable memory, which the hardened runtime refuses without this; the window then
+	     never opens (libffi keeps trying temporary files). Apple Silicon doesn't need it. -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+</dict>
+</plist>

@@ -1,5 +1,6 @@
 build/
 dist/
+dist-intel/
 __pycache__/
 *.pyc
 .venv/

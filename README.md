@@ -15,7 +15,10 @@ newest Mod Matrix each time it starts, so you always get kiteless's latest versi
 ## Download
 
 * **[Download for Mac](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-macOS.dmg)**: Apple Silicon (M1 or later),
-  macOS 11 or later. Intel Macs are not supported.
+  macOS 11 or later.
+* **[Download for Intel Mac](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-macOS-Intel.dmg)**: Macs with an Intel
+  processor, macOS 11 or later. (Not sure which you have? Apple menu > **About This Mac**:
+  "Chip: Apple M…" is Apple Silicon, "Processor: … Intel" is Intel.)
 * **[Download for Windows](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-Windows.zip)**: Windows 10 or 11, 64-bit.
 
 Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/releases).
@@ -24,7 +27,7 @@ Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/r
 
 **Mac**
 
-1. Open `ModMatrixDesktop-macOS.dmg` and drag **Perkons Mod Matrix Desktop** to **Applications**.
+1. Open `ModMatrixDesktop-macOS.dmg` (or `ModMatrixDesktop-macOS-Intel.dmg`) and drag **Perkons Mod Matrix Desktop** to **Applications**.
 2. Open it from Applications. The first time, macOS asks whether to open an app downloaded
    from the internet: choose **Open**.
 
@@ -193,15 +196,24 @@ folder's short (8.3) path on Windows.
 
 Everything the build downloads is pinned, with its SHA-256, in `runtime.lock.json`.
 
-macOS (Apple Silicon):
+macOS (built on an Apple Silicon Mac; the Intel app under Rosetta):
 
 ```sh
 scripts/build_macos.sh                         # -> dist/ModMatrixDesktop-macOS.dmg
+scripts/build_macos.sh intel                   # -> dist-intel/ModMatrixDesktop-macOS-Intel.dmg
 SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary scripts/build_macos.sh
 ```
 
+The Intel app bundles Arm GNU Toolchain 14.2.rel1: Arm's last build for Intel Macs (the
+Apple Silicon and Windows apps have 15.3.rel2). perkons-re works with either. That build's
+compiler expects Homebrew's zstd library, so the script builds zstd from source and puts it
+next to the compiler; it stops if anything in the runtime still needs a library a clean Mac
+doesn't have.
+
 Signing uses the hardened runtime on every binary; only the bundled Python has an
-entitlement (`com.apple.security.cs.allow-jit`, for the emulator). Notarising needs a
+entitlement (`com.apple.security.cs.allow-jit`, for the emulator; the Intel app's also has
+`allow-unsigned-executable-memory`: unicorn on Intel doesn't ask for JIT memory, and the Intel
+launcher has that one too, for PyObjC's libffi). Notarising needs a
 notarytool keychain profile, made once with
 `xcrun notarytool store-credentials notary --apple-id <id> --team-id <team> --password <app-specific password>`.
 
@@ -222,5 +234,5 @@ Options of the launcher (for development): `--browser` (no window), `--framework
 
 ### Licences
 
-The launcher and build scripts: MIT (`LICENSE`). Everything bundled: see `licenses/THIRD_PARTY.md`: the Arm GNU Toolchain is GPL-3.0 (its source is attached to
-each release), unicorn is GPL-2.0, perkons-re is MIT, Python is under the PSF licence.
+The launcher and build scripts: MIT (`LICENSE`). Everything bundled: see `licenses/THIRD_PARTY.md`: the Arm GNU Toolchain is GPL-3.0 (its source, for both
+versions, is attached to each release), unicorn is GPL-2.0, perkons-re is MIT, Python is under the PSF licence.
