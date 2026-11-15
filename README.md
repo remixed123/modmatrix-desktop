@@ -57,10 +57,6 @@ You need the official Pērkons firmware **1.3.0** from Erica Synths
    the Pērkons, hold all four voice trigger keys while powering on, and let go when the
    step LEDs start lighting.
 
-kiteless's guide has the details: [building](https://github.com/kiteless/perkons-re#4-build-your-firmware),
-[flashing](https://github.com/kiteless/perkons-re#5-flash-it), [using the mods](https://github.com/kiteless/perkons-re#6-use-the-mods) and
-[going back to the official firmware](https://github.com/kiteless/perkons-re#going-back-to-the-official-firmware).
-
 > A firmware file you build contains Erica Synths' firmware: it's for your own Pērkons,
 > please don't share it.
 
