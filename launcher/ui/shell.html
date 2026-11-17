@@ -18,9 +18,15 @@
       aria-describedby="tip-guides">USER GUIDES</button>
     <button class="tab" role="tab" id="tab-limits" aria-controls="limits" aria-selected="false" data-view="limits"
       aria-describedby="tip-limits">PROCESSOR &amp; MEMORY</button>
+    <button class="tab" role="tab" id="tab-news" aria-controls="news" aria-selected="false" data-view="news"
+      aria-describedby="tip-news">WHAT'S NEW<span class="tab-count" id="news-count" hidden></span></button>
+    <button class="tab" role="tab" id="tab-help" aria-controls="help" aria-selected="false" data-view="help"
+      aria-describedby="tip-help">TROUBLESHOOTING</button>
   </nav>
   <button id="check" type="button" aria-haspopup="dialog" aria-controls="updates" aria-expanded="false"
     aria-describedby="check-tip">CHECK FOR UPDATES</button>
+  <button id="about-btn" type="button" aria-haspopup="dialog" aria-controls="about" aria-expanded="false"
+    aria-describedby="about-tip">ABOUT</button>
 </header>
 <div id="tip-matrix" class="tip" role="tooltip" hidden>
   <strong>Build your modded firmware here.</strong>
@@ -38,6 +44,15 @@
   use is up to you. See how much each engine uses, where to put the heavy ones, and how to tell
   when it's too much.
 </div>
+<div id="tip-news" class="tip" role="tooltip" hidden>
+  <strong>What has changed in the mods and engines.</strong>
+  Every mod's and engine's recent changes, newest first. The ones that arrived since you last
+  looked are marked NEW: to get them on your Pērkons, build your firmware again and install it.
+</div>
+<div id="tip-help" class="tip" role="tooltip" hidden>
+  <strong>When something isn't right.</strong>
+  Slow start-up, crackle, a mod you can't tick, the app not connecting, and where to get help.
+</div>
 <div id="check-tip" class="tip" role="tooltip" hidden>
   <strong>New mods, engines and features are added all the time.</strong>
   The app gets the latest when it starts, and while it stays open it checks again by itself about
@@ -47,6 +62,44 @@
   <span id="check-found"></span>
   <span id="check-when"></span>
 </div>
+
+<div id="about-tip" class="tip" role="tooltip" hidden>
+  <strong>Who made what.</strong>
+  This app's version, what it adds, who wrote the Mod Matrix (kiteless) and who made this app, links to their
+  projects, and the licences.
+</div>
+
+<section id="about" role="dialog" aria-labelledby="about-title" hidden>
+  <div class="about-head">
+    <img src="/ui/icon-128.png" alt="" width="64" height="64">
+    <div>
+      <h2 id="about-title">Perkons Mod Matrix Desktop</h2>
+      <p class="muted">Version {{VERSION}} &middot; {{BUILD}}</p>
+    </div>
+  </div>
+  <h3>The Mod Matrix</h3>
+  <p>The Mod Matrix and perkons-re, the framework that builds the modded firmware, are by
+    <strong>kiteless</strong>. All credit for them goes there.</p>
+  <p class="links"><a href="https://github.com/kiteless/perkons-re" target="_blank" rel="noopener">kiteless/perkons-re</a>
+    <a href="https://github.com/kiteless/perkons-re-mods" target="_blank" rel="noopener">kiteless/perkons-re-mods</a></p>
+  <p>Each mod and engine is by its author: its user guide and the Mod Matrix say whose it is.</p>
+  <h3>This app</h3>
+  <p>By <strong>{{DEVELOPER}}</strong>. It runs kiteless's Mod Matrix in its own window, with everything
+    needed to build firmware, and adds user guides, processor &amp; memory, what's new,
+    troubleshooting and update checks.</p>
+  <p class="links"><a href="https://github.com/{{APP_REPO}}" target="_blank" rel="noopener">{{APP_REPO}}</a>
+    <a href="https://github.com/{{APP_REPO}}/releases" target="_blank" rel="noopener">All versions</a></p>
+  <p class="warn">{{DISCLAIMER}}</p>
+  <h3>Licences</h3>
+  <p class="muted">This app: MIT. perkons-re, downloaded when the app starts: MIT. Inside the app: the Arm
+    GNU Toolchain (GPL-3.0; its source is attached to each release), unicorn (GPL-2.0), Python (PSF),
+    capstone, pywebview, marked, DOMPurify and a few more. Each one's licence is in the app's licenses
+    folder, and the list is in the repo's licenses/THIRD_PARTY.md.</p>
+  <div id="about-actions">
+    <button type="button" id="about-check">CHECK FOR UPDATES</button>
+    <button type="button" id="about-close" class="primary">CLOSE</button>
+  </div>
+</section>
 
 <section id="updates" role="dialog" aria-labelledby="updates-title" hidden>
   <h2 id="updates-title">Updates</h2>
@@ -80,11 +133,11 @@
     </article>
   </section>
 
-  <section id="limits" role="tabpanel" aria-labelledby="tab-limits" tabindex="-1" hidden>
+  <section id="limits" class="page-view" role="tabpanel" aria-labelledby="tab-limits" tabindex="-1" hidden>
     <div class="limits">
       <div class="doc-bar"><span>How much the Pērkons can do at once</span>
-        <span class="doc-tools"><button type="button" id="limits-copy" title="Copy the whole page, to paste into a document or a message">COPY</button>
-          <button type="button" id="limits-print" title="Print this page, or save it as a PDF">PRINT</button></span></div>
+        <span class="doc-tools"><button type="button" class="copy-page" title="Copy the whole page, to paste into a document or a message">COPY</button>
+          <button type="button" class="print-page" title="Print this page, or save it as a PDF">PRINT</button></span></div>
 
       <div id="limits-page" aria-live="polite"><p class="data-note">Loading...</p></div>
     </div>
@@ -133,13 +186,51 @@
       </div>
     </div>
   </section>
+
+  <section id="news" class="page-view" role="tabpanel" aria-labelledby="tab-news" tabindex="-1" hidden>
+    <div class="limits">
+      <div class="doc-bar"><span>Recent changes to the Mod Matrix and every mod</span>
+        <span class="doc-tools"><button type="button" id="news-refresh" title="Get the latest changes from GitHub now">REFRESH</button>
+          <button type="button" id="news-seen" title="Mark every change as seen: they stop being NEW">MARK ALL AS SEEN</button>
+          <button type="button" class="copy-page" title="Copy the whole page, to paste into a document or a message">COPY</button>
+          <button type="button" class="print-page" title="Print this page, or save it as a PDF">PRINT</button></span></div>
+      <h1>What's new</h1>
+      <p class="lede">Changes to the mods, the engines and the Mod Matrix, newest first. Your Pērkons only gets
+        a change when you build your firmware again in the Mod Matrix and install it.</p>
+      <div id="news-summary" aria-live="polite"></div>
+      <div class="news-tools">
+        <div id="news-filter" role="radiogroup" aria-label="Show">
+          <button role="radio" data-kind="all" aria-checked="true">ALL</button>
+          <button role="radio" data-kind="engine" aria-checked="false">ENGINES</button>
+          <button role="radio" data-kind="mod" aria-checked="false">MODS</button>
+          <button role="radio" data-kind="framework" aria-checked="false">MOD MATRIX</button>
+        </div>
+        <label class="fx-pick"><input type="checkbox" id="news-only-new"> Only NEW</label>
+      </div>
+      <div id="news-list"><p class="data-note">Loading the changes...</p></div>
+    </div>
+  </section>
+
+  <section id="help" class="page-view" role="tabpanel" aria-labelledby="tab-help" tabindex="-1" hidden>
+    <div class="limits">
+      <div class="doc-bar"><span>When something isn't right</span>
+        <span class="doc-tools"><button type="button" class="copy-page" title="Copy the whole page, to paste into a document or a message">COPY</button>
+          <button type="button" class="print-page" title="Print this page, or save it as a PDF">PRINT</button></span></div>
+      <div id="help-page" aria-live="polite"><p class="data-note">Loading...</p></div>
+    </div>
+    <div id="help-parts" hidden><nav class="toc" data-part="contents" aria-label="On this page"></nav></div>
+  </section>
 </div>
 
 <script src="/ui/vendor/marked.umd.js"></script>
 <script src="/ui/vendor/purify.min.js"></script>
 <script src="/ui/guides.js"></script>
+<script src="/ui/mdpage.js"></script>
 <script src="/ui/limits.js"></script>
+<script src="/ui/news.js"></script>
+<script src="/ui/help.js"></script>
 <script src="/ui/tips.js"></script>
 <script src="/ui/updates.js"></script>
+<script src="/ui/about.js"></script>
 </body>
 </html>

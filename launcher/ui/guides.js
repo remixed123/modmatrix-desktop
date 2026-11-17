@@ -18,10 +18,20 @@ function showView(view) {
   for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.view === view));
   $("matrix").classList.toggle("off", view !== "matrix");
   $("guides").hidden = view !== "guides";
-  $("limits").hidden = view !== "limits";
+  for (const s of document.querySelectorAll(".page-view")) s.hidden = s.id !== view;
   document.body.dataset.view = view;                    // print styles: the view on screen
   if (view === "guides" && !state.mods.length && !state.loading) loadMods();
   if (view === "limits") limits.shown();
+  if (view === "news") whatsnew.shown();
+  if (view === "help") help.shown();
+}
+
+/* a mod's guide, from elsewhere (WHAT'S NEW) */
+async function openGuideById(id) {
+  showView("guides");
+  try { if (state.loading) await state.loading; } catch { return; }
+  const m = state.mods.find((x) => x.id === id);
+  if (m) openMod(m);
 }
 
 /* -- the list ---------------------------------------------------------------------------------- */
@@ -205,13 +215,14 @@ function bar(m, tools = false) {
 
 /* -- copy and print ---------------------------------------------------------------------------- */
 
-/* What goes on the clipboard from a guide or the PROCESSOR & MEMORY page: its HTML without the
+/* What goes on the clipboard from a guide or one of the app's pages: its HTML without the
  * page's colours (the browser would copy them inline: pale purple text in a document) and its
  * text. A selection elsewhere is copied as the browser does it. */
 let copying = null;                                    // set by COPY: the whole guide or page
 const guideRoot = () => $("doc").querySelector(".md");
-const limitsRoot = () => document.querySelector("#limits .limits");
-const shownRoot = () => (!$("limits").hidden ? limitsRoot() : !$("guides").hidden ? guideRoot() : null);
+const pageView = () => document.querySelector(".page-view:not([hidden])");       // PROCESSOR & MEMORY, WHAT'S NEW, ...
+const pageRoot = () => { const v = pageView(); return v && v.querySelector(".limits"); };
+const shownRoot = () => pageRoot() || (!$("guides").hidden ? guideRoot() : null);
 const selIn = (root) => {
   const sel = window.getSelection();
   return root && sel.rangeCount && !sel.isCollapsed && root.contains(sel.getRangeAt(0).commonAncestorContainer)
@@ -227,8 +238,8 @@ document.addEventListener("copy", (e) => {
     div.append(range.cloneContents());
     html = cleanHtml(div);
     text = window.getSelection().toString();
-  } else if ((range = selIn(limitsRoot()))) {
-    ({ html, text } = limits.forCopy(range.cloneContents()));
+  } else if ((range = selIn(pageRoot()))) {
+    ({ html, text } = mdpage.forCopy(range.cloneContents()));
   } else {
     return;
   }
@@ -251,7 +262,7 @@ function cleanHtml(node) {
  * or turns off the system one in a release build). The selection is kept while the menu is open:
  * its items don't take focus on mouse down. */
 const ctx = { menu: null, range: null };
-const onLimits = () => !$("limits").hidden;
+const onPage = () => Boolean(pageView());
 
 function ctxMenu() {
   if (ctx.menu) return ctx.menu;
@@ -283,7 +294,7 @@ function ctxMenu() {
   });
   m.append(el("hr"));
   ctx.whole = item("Copy whole guide", () => {
-    if (onLimits()) return limits.copyAll($("limits-copy"));
+    if (onPage()) return mdpage.copyAll(pageView());
     const b = $("doc").querySelector(".doc-tools button");
     if (b) copyGuide(b);
   });
@@ -313,7 +324,7 @@ function openCtx(x, y) {
   const range = selIn(shownRoot());
   ctx.range = range ? range.cloneRange() : null;
   ctx.copy.disabled = !ctx.range;
-  const what = onLimits() ? "page" : "guide";
+  const what = onPage() ? "page" : "guide";
   ctx.whole.textContent = `Copy whole ${what}`;
   ctx.print.textContent = `Print ${what}`;
   m.hidden = false;
@@ -326,7 +337,7 @@ function closeCtx() {
   if (ctx.menu && !ctx.menu.hidden) ctx.menu.hidden = true;
 }
 
-for (const [pane, inside] of [[$("doc"), ".md"], [$("limits"), ".limits"]]) {
+for (const [pane, inside] of [[$("doc"), ".md"], ...[...document.querySelectorAll(".page-view")].map((v) => [v, ".limits"])]) {
   pane.addEventListener("contextmenu", (e) => {
     if (!e.target.closest(inside) || e.target.closest("select")) return;
     e.preventDefault();

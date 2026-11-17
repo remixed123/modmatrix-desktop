@@ -11,6 +11,9 @@
  * was found. It stays so until the person presses CLEAR in the panel (or UPDATE NOW): a check
  * that finds nothing doesn't clear it, and the launcher keeps it (/updates/state), so a page
  * reload doesn't lose it.
+ * It also shows what arrived while the app was closed: changes to the mods the person hasn't
+ * marked as seen (news.js, from WHAT'S NEW). They make the button UPDATES FOUND and get their
+ * own section in the panel; CLEAR marks them as seen.
  * The quiet check costs GitHub a few small requests; the launcher reads the repos and asks
  * GitHub's API only when something is new (?quiet=1). */
 "use strict";
@@ -26,6 +29,10 @@
   let found = null;                         // {result, at}: the last check that found something
   let seen = null;                          // the finding the person has cleared: not flagged again
   let busy = false;
+  let news = null;                          // what's new since the person last looked (news.js), or null
+  const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
+  const newsLine = (i) => [...i.changed.map((c) => c.title), ...i.added.map((t) => `new: ${t}`),
+                           ...i.removed.map((t) => `removed: ${t}`)].join(", ");
 
   /* its tooltip (tips.js) says how long since the app got the latest */
   const ago = (t) => {
@@ -36,7 +43,8 @@
     return h < 48 ? `${h} h ${min % 60 ? (min % 60) + " min " : ""}ago` : `${Math.floor(h / 24)} days ago`;
   };
   btn.addEventListener("tipshow", () => {
-    $("check-found").textContent = found ? `Found ${ago(found.at)}: ${summary(found.result)}.` : "";
+    $("check-found").textContent = [found ? `Found ${ago(found.at)}: ${summary(found.result)}.` : "",
+      news ? `Since you last looked (${sinceText(news.since)}): ${newsLine(news)}.` : ""].filter(Boolean).join(" ");
     $("check-when").textContent = `Mod Matrix started ${ago(started)}` + (lastCheck ? ` \u00b7 last checked ${ago(lastCheck)}` : "");
   });
 
@@ -65,7 +73,7 @@
     if (r && summary(r)) found = { result: r, at: (found && summary(found.result) === summary(r)) ? found.at : Date.now() };
     else if (r && full && !r.failed.length) found = null;
     const act = needsAction();
-    const noted = !act && isNew();
+    const noted = !act && (isNew() || Boolean(news));
     btn.classList.toggle("found", act);
     btn.classList.toggle("noted", noted);
     btn.textContent = act ? "UPDATES AVAILABLE" : noted ? "UPDATES FOUND" : "CHECK FOR UPDATES";
@@ -92,6 +100,7 @@
   }
   function clear() {                        // CLEAR: the person has seen it (not UPDATE NOW's changes)
     close();
+    if (news) { news = null; whatsnew.markSeen(); setButton(); }
     if (!found || found.result.restart) return;
     seen = summary(found.result);
     setButton();
@@ -149,6 +158,16 @@
     } else if (me.version) {
       section("This app", [node("p", "muted", `Perkons Mod Matrix Desktop ${me.version}. Couldn't check for a newer version (see below).`)]);
     }
+    if (news) {
+      const items = [...news.changed.map((c) => `${c.title}: ${c.n} ${c.n === 1 ? "change" : "changes"}`),
+                     ...news.added.map((t) => `New: ${t}`), ...news.removed.map((t) => `No longer offered: ${t}`)];
+      const more = node("p", "muted", "If any of these are in the firmware on your Pērkons, build it again and install it to get them. ");
+      const see = node("a", "", "See what changed");
+      see.href = "#";
+      see.addEventListener("click", (e) => { e.preventDefault(); close(); showView("news"); });
+      more.append(see);
+      section(`Since you last looked (${sinceText(news.since)})`, [list(items), more]);
+    }
     if (r.framework) {
       section("Mod Matrix", ["kiteless has updated the Mod Matrix since the app started.", ...commits(r.framework)]);
     }
@@ -163,7 +182,7 @@
     if (r.unknown.length) {
       section("Updated code", [node("p", "muted", `${r.unknown.join(", ")} changed (GitHub didn't say which mods). Your next build uses the new code already.`)]);
     }
-    const nothing = !r.app && !r.restart && !r.code.length && !r.unknown.length;
+    const nothing = !r.app && !r.restart && !r.code.length && !r.unknown.length && !news;
     if (nothing) body.append(node("p", "ok", "Everything is up to date."));
     body.append(node("p", "remind", "New mods, engines and features are added all the time: if you keep the app " +
       "open, check again now and then (or restart the app)."));
@@ -176,7 +195,7 @@
         "you ticked are cleared: load your firmware again afterwards. Wait for a build in progress to finish first."));
       button("LATER", close);
       button("UPDATE NOW", apply, true).focus();
-    } else if (summary(r)) {
+    } else if (summary(r) || news) {
       button("CLEAR", clear).focus();
     } else {
       button("CLOSE", close).focus();
@@ -197,6 +216,7 @@
       const res = await r.json();
       if (!r.ok) throw new Error(res.error || r.statusText);
       lastCheck = Date.now();
+      await whatsnew.load(true).catch(() => { /* offline: the last one */ });
       show(res);
     } catch (e) {
       body.replaceChildren(node("p", "err", `The check failed (${e.message}). Check the internet connection.`));
@@ -264,6 +284,11 @@
   window.addEventListener("blur", () => { /* the Mod Matrix frame took a click */
     if (!panel.hidden && document.activeElement === $("matrix")) close();
   });
+
+  // what's new since the person last looked (news.js tells; it may have loaded already)
+  const takeNews = (i) => { news = i && i.any ? i : null; setButton(); };
+  document.addEventListener("pmm-news", (e) => takeNews(e.detail));
+  takeNews(whatsnew.info());
 
   // what the launcher found before this page loaded (the page may have been reloaded)
   fetch("/updates/state").then((r) => r.json()).then((st) => {

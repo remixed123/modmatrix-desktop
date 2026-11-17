@@ -6,6 +6,11 @@ import sys
 VERSION = re.search(r"APP_VERSION = '([^']+)'", open('launcher/modmatrix_launcher.py').read()).group(1)
 NAME = 'Perkons Mod Matrix Desktop'
 DEVELOPER = 'remixed123'
+# the Mac's About box and the Windows exe's Properties > Details (the launcher's CREDIT and
+# DISCLAIMER say the same: tests/test_launcher.py checks)
+CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app by {DEVELOPER}.'
+DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
+              'flashed entirely at your own risk.')
 ICON = {'darwin': 'assets/icon.icns', 'win32': 'assets/icon.ico'}.get(sys.platform)
 import os
 ICON = ICON if ICON and os.path.exists(ICON) else None
@@ -18,13 +23,13 @@ if sys.platform == 'win32':   # the exe's Properties > Details
     VERSION_FILE = VSVersionInfo(
         ffi=FixedFileInfo(filevers=nums, prodvers=nums),
         kids=[StringFileInfo([StringTable('040904B0', [
-            StringStruct('CompanyName', DEVELOPER), StringStruct('FileDescription', f'{NAME}, packaged by {DEVELOPER}'),
+            StringStruct('CompanyName', DEVELOPER), StringStruct('FileDescription', NAME),
             StringStruct('ProductName', NAME), StringStruct('FileVersion', VERSION),
             StringStruct('ProductVersion', VERSION), StringStruct('OriginalFilename', f'{NAME}.exe'),
-            StringStruct('LegalCopyright', f'{DEVELOPER}. Unofficial, not endorsed by Erica Synths.')])]),
+            StringStruct('LegalCopyright', f'{CREDIT} {DISCLAIMER}')])]),
               VarFileInfo([VarStruct('Translation', [0x0409, 1200])])])
 
-a = Analysis(['launcher/modmatrix_launcher.py'], datas=[('launcher/ui', 'ui'), ('content/processor.json', 'content'), ('content/processor.md', 'content')], excludes=['tkinter', 'unittest', 'pydoc', 'test'])
+a = Analysis(['launcher/modmatrix_launcher.py'], datas=[('launcher/ui', 'ui'), ('content/processor.json', 'content'), ('content/processor.md', 'content'), ('content/troubleshooting.md', 'content')], excludes=['tkinter', 'unittest', 'pydoc', 'test'])
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=False, icon=ICON, version=VERSION_FILE,
           argv_emulation=False, upx=False)
@@ -35,5 +40,4 @@ if sys.platform == 'darwin':
                  info_plist={'CFBundleShortVersionString': VERSION, 'CFBundleVersion': VERSION,
                              'LSMinimumSystemVersion': '11.0', 'NSHighResolutionCapable': True,
                              'LSApplicationCategoryType': 'public.app-category.music',
-                             'NSHumanReadableCopyright': f'The Mod Matrix and perkons-re are by kiteless. Desktop app packaged by {DEVELOPER}. '
-                                                           'Unofficial. Not affiliated with or endorsed by Erica Synths.'})
+                             'NSHumanReadableCopyright': f'{CREDIT} {DISCLAIMER}'})

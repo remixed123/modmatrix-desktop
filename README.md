@@ -6,8 +6,9 @@ and get a modded firmware file to flash. Read each mod's user guide in the app, 
 Python, compiler or terminal needed.
 
 **The Mod Matrix, perkons-re and the main mods are by [kiteless](https://github.com/kiteless).**
-This app only packages them so they run without installing anything. It downloads the
-newest Mod Matrix each time it starts, so you always get kiteless's latest version.
+This app, by [remixed123](https://github.com/remixed123), runs them without installing anything,
+and adds user guides, processor & memory, what's new, troubleshooting and update checks. It
+downloads the newest Mod Matrix each time it starts, so you always get kiteless's latest version.
 
 > Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is flashed
 > entirely at your own risk. The app contains no Erica Synths firmware: you supply your own.

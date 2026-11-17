@@ -33,7 +33,10 @@ const limits = (() => {
       .filter((e) => e && !e.hidden && str(e.id) && str(e.name) && Number.isFinite(e.low) && Number.isFinite(e.high))
       .map((e) => ({ id: e.id, name: e.name, short: str(e.short) || e.name, official: e.official === true,
                      algos: str(e.algos), from: str(e.from), low: e.low, high: Math.max(e.low, e.high),
-                     heaviest: str(e.heaviest) }));
+                     heaviest: str(e.heaviest) }))
+      // the official engines first, then the rest A-Z (table and planner alike)
+      .sort((a, b) => (b.official - a.official)
+        || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
     const levels = (Array.isArray(raw.levels) ? raw.levels : [])
       .filter((l) => l && LEVEL_KEYS.includes(l.key) && str(l.name))
       .map((l) => ({ key: l.key, name: l.name, upTo: num(l.up_to, Infinity), says: str(l.says) }))
@@ -223,94 +226,9 @@ const limits = (() => {
     }
   }
 
-  /* -- the text: content/processor.md ------------------------------------------------------------
-   * Markdown, with: "<!-- pmm:name -->" alone on a line where the app puts one of its parts
-   * (the [data-part] elements in shell.html); "<!-- toc: Label -->" after a heading to list it
-   * in the contents; "> [!WARNING]" / "> [!NOTE]" callouts (yellow / blue box); and a little
-   * HTML for the cards, keeping only the page's own classes (CLASSES). README in content/. */
+  /* -- the text: content/processor.md (mdpage.js renders it) ---------------------------------- */
 
-  const CLASSES = new Set(["pair", "card", "voices", "first", "badge", "ok", "you", "muted", "lede"]);
-  const CALLOUTS = { WARNING: "prelim", CAUTION: "prelim", IMPORTANT: "prelim", NOTE: "aside", TIP: "aside" };
   let pageText = null;
-
-  function slugger() {
-    const seen = new Map();
-    return (text) => {
-      const s = "l-" + (text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, "").replace(/\s+/g, "-") || "x");
-      const n = seen.get(s) || 0;
-      seen.set(s, n + 1);
-      return n ? `${s}-${n}` : s;
-    };
-  }
-
-  function sanitize(html) {
-    DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
-      if (data.attrName !== "class") return;
-      const keep = data.attrValue.split(/\s+/).filter((c) => CLASSES.has(c));
-      if (keep.length) data.attrValue = keep.join(" ");
-      else data.keepAttr = false;
-    });
-    try {
-      return DOMPurify.sanitize(html, {
-        FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select", "iframe", "object", "embed", "img"],
-        FORBID_ATTR: ["style", "id"],
-      });
-    } finally {
-      DOMPurify.removeHook("uponSanitizeAttribute");
-    }
-  }
-
-  function renderPage(text) {
-    const md = text
-      .replace(/^<!--\s*pmm:([a-z-]+)\s*-->[ \t]*$/gm, '<div data-pmm="$1"></div>')
-      .replace(/^(#{1,4} .*?)\s*<!--\s*toc:\s*(.*?)\s*-->[ \t]*$/gm,
-               (_, h, label) => `${h} <span data-toc="${label.replace(/[&<>"]/g, "")}"></span>`);
-    const root = el("div");
-    root.innerHTML = sanitize(marked.parse(md, { gfm: true, async: false }));
-
-    for (const q of root.querySelectorAll("blockquote")) {           // > [!WARNING] ... callouts
-      const walker = document.createTreeWalker(q, NodeFilter.SHOW_TEXT);
-      let t = walker.nextNode();
-      while (t && !t.data.trim()) t = walker.nextNode();
-      const m = t && /^\s*\[!(\w+)\]\s*/.exec(t.data);
-      if (!m || !CALLOUTS[m[1].toUpperCase()]) continue;
-      t.data = t.data.slice(m[0].length);
-      const box = el("div", CALLOUTS[m[1].toUpperCase()]);
-      box.append(...q.childNodes);
-      q.replaceWith(box);
-    }
-    for (const t of root.querySelectorAll("table")) {
-      const wrap = el("div", "table");
-      t.replaceWith(wrap);
-      wrap.append(t);
-    }
-    const slug = slugger(), toc = [];
-    for (const h of root.querySelectorAll("h1, h2, h3, h4")) {
-      const mark = h.querySelector("span[data-toc]");
-      if (mark) mark.remove();
-      h.id = slug(h.textContent);
-      if (mark) toc.push([h.id, mark.dataset.toc]);
-    }
-    for (const a of root.querySelectorAll("a[href]")) {
-      const href = a.getAttribute("href");
-      if (href.startsWith("#")) continue;                              // the page's own: see onClick
-      if (/^https:\/\//i.test(href)) { a.target = "_blank"; a.rel = "noopener"; } else a.removeAttribute("href");
-    }
-
-    // the app's parts back to the holder, then into this text's markers
-    const holder = $("limits-parts");
-    for (const p of document.querySelectorAll("#limits-page [data-part]")) holder.append(p);
-    const nav = holder.querySelector('[data-part="contents"]');
-    nav.replaceChildren(...toc.map(([id, label]) => { const a = el("a", "", label); a.href = "#" + id; return a; }));
-    for (const slot of root.querySelectorAll("[data-pmm]")) {
-      const part = holder.querySelector(`[data-part="${CSS.escape(slot.dataset.pmm)}"]`);
-      if (part) slot.replaceWith(part); else slot.remove();
-    }
-    for (const part of [...holder.querySelectorAll("[data-part]")]) {  // a marker missing: at the end
-      if (part.dataset.part !== "contents" || toc.length) root.append(part);
-    }
-    $("limits-page").replaceChildren(...root.childNodes);
-  }
 
   /* the heading just before the planner (PLAN A KIT jumps there) */
   function planTarget() {
@@ -323,30 +241,14 @@ const limits = (() => {
     return planner;
   }
 
-  function onClick(e) {
-    const a = e.target.closest("#limits a[href^='#']");
-    if (!a) return;
-    e.preventDefault();
-    const id = a.getAttribute("href").slice(1);
-    const t = a.dataset.part === "plan-button" ? planTarget() : id && document.getElementById(id);
-    if (t) t.scrollIntoView({ behavior: "smooth" });
-  }
-
   /* -- loading ---------------------------------------------------------------------------------- */
-
-  async function getJson(url) {
-    const r = await fetch(url);
-    const body = await r.json();
-    if (!r.ok) throw new Error(body.error || r.statusText);
-    return body;
-  }
 
   async function load() {
     loadedAt = Date.now();
-    const [page, nums] = await Promise.allSettled([getJson("/limits/page"), getJson("/limits/data")]);
+    const [page, nums] = await Promise.allSettled([mdpage.getJson("/limits/page"), mdpage.getJson("/limits/data")]);
     if (page.status === "fulfilled") {
       if (page.value.data !== pageText) {
-        renderPage(page.value.data);
+        mdpage.render(page.value.data, { target: $("limits-page"), holder: $("limits-parts"), prefix: "l-" });
         pageText = page.value.data;
       }
     } else if (pageText === null) {                      // nothing on screen yet
@@ -371,43 +273,9 @@ const limits = (() => {
     }
   }
 
-  /* -- copying: the page as a document (no buttons, bars or menus; the planner's choices as text) */
-
-  function forCopy(node) {
-    const c = el("div");
-    c.append(node);
-    for (const n of c.querySelectorAll(".doc-bar, .toc, .plan-cta, .meter, .track, figure.lane, script")) n.remove();
-    for (const p of c.querySelectorAll(".pick")) {
-      const tag = p.querySelector(".vtag"), sel = p.querySelector("select");
-      const o = sel && (sel.querySelector("option[selected]") || sel.querySelector("option"));
-      p.replaceWith(el("p", "", `${tag ? tag.textContent : ""}${o ? ": " + o.textContent : ""}`));
-    }
-    for (const l of c.querySelectorAll(".fx-pick")) {
-      const box = l.querySelector("input");
-      l.replaceWith(el("p", "", `${l.textContent.trim()}: ${box && box.hasAttribute("checked") ? "on" : "off"}`));
-    }
-    for (const s of c.querySelectorAll("select, input")) s.remove();
-    // the text as laid out (innerText needs the copy on the page, out of sight)
-    c.className = "copy-stage";
-    document.body.append(c);
-    const text = c.innerText;
-    c.remove();
-    return { html: cleanHtml(c), text };
-  }
-
-  function copyAll(btn) {
-    const page = document.querySelector("#limits .limits");
-    const { html, text } = forCopy(page.cloneNode(true));
-    copyWhole(page, btn, html, text);
-  }
-
   load();
-  $("limits-print").addEventListener("click", () => window.print());
-  $("limits-copy").addEventListener("click", () => copyAll($("limits-copy")));
-  $("limits").addEventListener("click", onClick);
+  mdpage.bind($("limits"), (a) => (a.dataset.part === "plan-button" ? planTarget() : null));
   return {
     shown() { if (Date.now() - loadedAt > 15 * 60 * 1000) load(); },   // newer numbers while the app stays open
-    forCopy,
-    copyAll,
   };
 })();

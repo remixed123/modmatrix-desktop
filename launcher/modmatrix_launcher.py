@@ -68,10 +68,19 @@ KEEP_FRAMEWORKS = 2
 WINDOWS = platform.system() == 'Windows'
 MACOS = platform.system() == 'Darwin'
 DEVELOPER = 'remixed123'
-TITLE = f'{APP_NAME}, packaged by {DEVELOPER}'
-CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app packaged by {DEVELOPER} (github.com/{DEVELOPER}).'
+TITLE = APP_NAME                 # the window; who made it is in ABOUT
+CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app by {DEVELOPER} (github.com/{DEVELOPER}).'
 DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
               'flashed entirely at your own risk.')
+
+
+def build_name():
+    """Which build this is, for the About panel."""
+    if WINDOWS:
+        return 'Windows'
+    if MACOS:
+        return 'Mac, Intel' if platform.machine() == 'x86_64' else 'Mac, Apple Silicon'
+    return platform.system()
 
 
 class LaunchError(Exception):
@@ -899,6 +908,154 @@ class Content:
         raise LaunchError(f'This page could not be loaded ({self.name}).')
 
 
+# -- WHAT'S NEW: each mod's recent changes, and which arrived since the person last looked --------
+#
+# GitHub's change feed of each mod's folder (and of perkons-re): the newest 20 changes, with
+# dates and messages, from github.com itself (not its API: no hourly limit). Kept in the data
+# folder for offline use. "Seen" is the changes the person has marked as seen (CLEAR in the
+# updates panel, or MARK ALL AS SEEN), by commit, not by date: a change merged in later, with an
+# older date, still counts as new. On the very first run everything counts as seen.
+
+FEED_URL = 'https://github.com/{repo}/commits/{ref}/{path}.atom'
+FRAMEWORK_FEED = f'https://github.com/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}.atom'
+NEWS_TTL = 600               # seconds: the feeds are read again after this long (or on Refresh)
+NEWS_WORKERS = 8
+ATOM = '{http://www.w3.org/2005/Atom}'
+COMMIT_LINK = re.compile(r'^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/commit/([0-9a-f]{7,40})$')
+
+
+def parse_feed(raw):
+    """A GitHub commits feed -> [{sha, date, title, body, url}], newest first."""
+    import html as htmllib
+    import xml.etree.ElementTree as ET
+    out = []
+    for e in ET.fromstring(raw).findall(f'{ATOM}entry'):
+        link = e.find(f'{ATOM}link')
+        url = link.get('href', '') if link is not None else ''
+        m = COMMIT_LINK.match(url)
+        if not m:
+            continue
+        content = e.find(f'{ATOM}content')
+        text = re.sub(r'<[^>]+>', '', content.text or '') if content is not None else ''
+        text = htmllib.unescape(text).strip() or (e.findtext(f'{ATOM}title') or '').strip()
+        title, _, body = text.partition('\n')
+        out.append({'sha': m[1], 'date': (e.findtext(f'{ATOM}updated') or '').strip(), 'title': title.strip(),
+                    'body': body.strip(), 'url': url})
+    return out
+
+
+class News:
+    def __init__(self, data, guides, log):
+        self.root = os.path.join(data, 'news')
+        self.guides, self.log = guides, log
+        self.lock = threading.Lock()
+        self.last = None              # (time, result)
+
+    def feeds(self):
+        """perkons-re first, then every mod in the Mod Matrix's list (A-Z)."""
+        out = [{'key': FRAMEWORK_REPO, 'id': None, 'title': 'Mod Matrix (perkons-re)', 'kind': 'framework',
+                'repo': FRAMEWORK_REPO, 'author': FRAMEWORK_REPO.split('/')[0], 'url': FRAMEWORK_FEED}]
+        for m in self.guides.mods():
+            repo, ref, path = m.get('repo'), m.get('ref') or 'main', m.get('dir') or ''
+            if not (REPO_RE.match(repo or '') and REF_RE.match(ref) and _safe_rel(ref) and _safe_rel(path)):
+                continue
+            out.append({'key': m['id'], 'id': m['id'], 'title': m['title'], 'kind': m['kind'], 'repo': repo,
+                        'author': m.get('author') or repo.split('/')[0],
+                        'url': FEED_URL.format(repo=repo, ref=ref, path=urllib.request.quote(path))})
+        return out
+
+    def _read(self, name, default):
+        try:
+            with open(os.path.join(self.root, name), encoding='utf-8') as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return default
+
+    def _write(self, name, obj):
+        os.makedirs(self.root, exist_ok=True)
+        path = os.path.join(self.root, name)
+        tmp = f'{path}.{threading.get_ident()}.part'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(obj, f, ensure_ascii=False)
+        os.replace(tmp, path)
+
+    def _fetch(self, feed):
+        try:
+            return parse_feed(FETCH(feed['url'], timeout=README_TIMEOUT))
+        except Exception as e:
+            self.log(f'news: {feed["key"]}: {e}')
+            return None
+
+    def get(self, fresh=False):
+        """{items: [feed + changes (each with new: bool) + added], removed: [titles], since, offline: [titles]}"""
+        with self.lock:
+            if not fresh and self.last and time.time() - self.last[0] < NEWS_TTL:
+                return self.last[1]
+            from concurrent.futures import ThreadPoolExecutor
+            feeds = self.feeds()
+            with ThreadPoolExecutor(NEWS_WORKERS) as pool:
+                got = list(pool.map(self._fetch, feeds))
+            saved = self._read('feeds.json', {})
+            offline = []
+            for feed, changes in zip(feeds, got):
+                if changes is None:
+                    changes = saved.get(feed['key'])
+                    if changes is None:
+                        offline.append(feed['title'])
+                        changes = []
+                    feed['offline'] = True
+                else:
+                    saved[feed['key']] = changes
+                feed['changes'] = changes
+            self._write('feeds.json', saved)
+            seen = self._read('seen.json', None)
+            if seen is None:                      # the first run: nothing is new yet
+                seen = self._seen_now(feeds, {})
+                self._write('seen.json', seen)
+            # a listed mod whose feed was never read (offline then): what it has now is its start
+            late = [f for f in feeds if f['key'] in seen['mods'] and f['key'] not in seen['feeds'] and f['changes']]
+            for f in late:
+                seen['feeds'][f['key']] = [c['sha'] for c in f['changes']]
+            if late:
+                self._write('seen.json', seen)
+            for feed in feeds:
+                known = set(seen['feeds'].get(feed['key'], []))
+                feed['added'] = feed['key'] not in seen['mods']
+                for c in feed['changes']:
+                    c['new'] = not feed['added'] and c['sha'] not in known
+            here = {f['key'] for f in feeds}
+            out = {'items': feeds, 'since': seen['at'], 'offline': offline,
+                   'removed': sorted(t for k, t in seen['mods'].items() if k not in here)}
+            self.last = (time.time(), out)
+            return out
+
+    @staticmethod
+    def _seen_now(feeds, old):
+        """What counts as seen from now: every change shown (a feed that couldn't be read keeps
+        what it had), and the mods listed."""
+        prev = old.get('feeds', {})
+        keep = {}
+        for f in feeds:
+            if f.get('offline') and f['key'] in prev:
+                keep[f['key']] = prev[f['key']]
+            elif f['changes']:
+                keep[f['key']] = [c['sha'] for c in f['changes']]
+        return {'at': time.time(), 'feeds': keep, 'mods': {f['key']: f['title'] for f in feeds}}
+
+    def mark_seen(self):
+        """CLEAR / MARK ALL AS SEEN: everything shown now counts as seen."""
+        result = self.get()
+        with self.lock:
+            seen = self._seen_now(result['items'], self._read('seen.json', {}))
+            self._write('seen.json', seen)
+            for f in result['items']:
+                f['added'] = False
+                for c in f['changes']:
+                    c['new'] = False
+            result['since'], result['removed'] = seen['at'], []
+        return result
+
+
 class Shell:
     """The local web server for the app's page (127.0.0.1, a free port)."""
 
@@ -907,6 +1064,8 @@ class Shell:
         self.guides = Guides(data, matrix_url, log, fresh)
         self.processor = Content(data, log, 'processor.json', parse_processor)
         self.processor_page = Content(data, log, 'processor.md', parse_page)
+        self.pages = {'troubleshooting': Content(data, log, 'troubleshooting.md', parse_page)}
+        self.news = News(data, self.guides, log)
         self.updates = updates
         self.log = log
         self.httpd, self.url = None, None
@@ -939,7 +1098,12 @@ class Shell:
                     .replace('{{MATRIX_ORIGIN}}', html.escape(origin))
                     .replace('{{AUTO_CHECK}}', str(auto_check_minutes()))
                     .replace('{{TITLE}}', html.escape(TITLE))
-                    .replace('{{CREDIT}}', html.escape(CREDIT)))
+                    .replace('{{CREDIT}}', html.escape(CREDIT))
+                    .replace('{{VERSION}}', html.escape(APP_VERSION))
+                    .replace('{{BUILD}}', html.escape(build_name()))
+                    .replace('{{DISCLAIMER}}', html.escape(DISCLAIMER))
+                    .replace('{{APP_REPO}}', html.escape(APP_REPO))
+                    .replace('{{DEVELOPER}}', html.escape(DEVELOPER)))
 
     def handler(self):
         from http import HTTPStatus
@@ -984,6 +1148,10 @@ class Shell:
                         return self.send_json(shell.processor.get())
                     if url.path == '/limits/page':
                         return self.send_json(shell.processor_page.get())
+                    if url.path.startswith('/content/') and url.path[len('/content/'):] in shell.pages:
+                        return self.send_json(shell.pages[url.path[len('/content/'):]].get())
+                    if url.path == '/news':
+                        return self.send_json(shell.news.get(fresh=q.get('fresh') == ['1']))
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
@@ -1011,6 +1179,8 @@ class Shell:
                         or self.headers.get('Origin', shell.url.rstrip('/')) != shell.url.rstrip('/')):
                     return self.send(HTTPStatus.FORBIDDEN, 'forbidden', 'text/plain')
                 try:
+                    if self.path == '/news/seen':
+                        return self.send_json(shell.news.mark_seen())
                     if self.path == '/updates/apply' and shell.updates:
                         return self.send_json({'notice': shell.updates.apply()})
                     if self.path == '/updates/clear' and shell.updates:

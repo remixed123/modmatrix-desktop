@@ -68,6 +68,33 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 #updates-actions button.primary { color: var(--blue); background: var(--yellow); border-color: var(--yellow); }
 #updates-actions button:disabled { opacity: .6; cursor: default; }
 
+/* ABOUT: the button after CHECK FOR UPDATES, and its panel (as the updates panel) */
+#about-btn { margin: 0 0 6px; font: 600 12px/1 var(--mono); letter-spacing: .06em; padding: 7px 12px; cursor: pointer;
+  color: var(--white); background: transparent; border: 2px solid rgba(255, 255, 255, .55); border-radius: 3px; }
+#about-btn:hover, #about-btn[aria-expanded="true"] { border-color: var(--white); background: rgba(0, 0, 0, .15); }
+#about-btn:focus-visible, #about button:focus-visible, #about a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+#about { position: fixed; z-index: 20; top: 50px; right: 12px; width: min(480px, calc(100vw - 24px));
+  max-height: calc(100vh - 70px); overflow-y: auto; padding: 16px 18px 16px; background: var(--blue);
+  border: 2px solid var(--lightblue); border-radius: 5px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  font-size: 14px; line-height: 1.45; color: #d6d3ff; -webkit-user-select: text; user-select: text; }
+#about[hidden] { display: none; }
+#about .about-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+#about .about-head img { flex: none; border-radius: 12px; }
+#about h2 { margin: 0 0 2px; font-size: 18px; color: var(--white); }
+#about h3 { margin: 14px 0 4px; font: 600 12px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--white); }
+#about p { margin: 4px 0; }
+#about strong { color: var(--white); }
+#about .muted { color: var(--lightgrey); font-size: 13px; }
+#about .about-head .muted { margin: 0; font: 12px/1.3 var(--mono); }
+#about .links { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+#about a { color: var(--cyan); }
+#about .warn { margin-top: 12px; padding: 8px 10px; border-left: 4px solid var(--yellow);
+  background: rgba(0, 0, 0, .18); font-size: 13px; color: var(--yellow); }
+#about-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; -webkit-user-select: none; user-select: none; }
+#about-actions button { font: 600 12px/1 var(--mono); letter-spacing: .06em; padding: 8px 12px; cursor: pointer;
+  color: var(--text); background: transparent; border: 2px solid var(--lightblue); border-radius: 3px; }
+#about-actions button.primary { color: var(--blue); background: var(--yellow); border-color: var(--yellow); }
+
 #stage { position: relative; flex: 1 1 auto; min-height: 0; }
 #matrix { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--purple); }
 #matrix.off { visibility: hidden; }        /* kept laid out: the Mod Matrix keeps its state and drawing */
@@ -168,9 +195,10 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .md tr:nth-child(even) td { background: rgba(0, 0, 0, .12); }
 
 /* PROCESSOR & MEMORY: one page, the guides' type (.md) with its own cards, meters and planner */
-#limits { position: absolute; inset: 0; overflow-y: auto; padding: 22px 36px 60px; background: var(--blue); outline: none;
+/* the app's pages (PROCESSOR & MEMORY, WHAT'S NEW, TROUBLESHOOTING): one column, the guides' type */
+.page-view { position: absolute; inset: 0; overflow-y: auto; padding: 22px 36px 60px; background: var(--blue); outline: none;
   -webkit-user-select: text; user-select: text; }
-#limits[hidden] { display: none; }
+.page-view[hidden] { display: none; }
 .limits { max-width: 980px; color: #d6d3ff; }
 .limits .doc-bar { -webkit-user-select: none; user-select: none; }
 .limits h1, .limits h2, .limits h3 { color: var(--white); line-height: 1.25; scroll-margin-top: 12px; }
@@ -285,7 +313,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .verdict .tip-line { display: block; margin-top: 6px; color: var(--text); }
 
 @media (max-width: 900px) {
-  #limits { padding: 18px 20px 48px; }
+  .page-view { padding: 18px 20px 48px; }
   .pair { grid-template-columns: 1fr; }
   .picks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -300,7 +328,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   @page { margin: 16mm 14mm; }
   html, body { height: auto; background: #fff; color: #000; display: block; }
   body { font-size: 11pt; }
-  #tabs, #updates, .tip, #side, #matrix, #ctx, .doc-tools, .doc-bar a, .offline, .empty { display: none !important; }
+  #tabs, #updates, #about, .tip, #side, #matrix, #ctx, .doc-tools, .doc-bar a, .offline, .empty { display: none !important; }
   #stage, #guides, #doc { position: static; display: block; overflow: visible; height: auto; padding: 0; background: #fff; }
   .doc-bar { color: #555; margin-bottom: 8px; }
   .md { max-width: none; color: #000; }
@@ -318,8 +346,11 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   .md th { background: #e8e8e8; }
   .md tr:nth-child(even) td { background: #f6f6f6; }
   .md tr, .md img, .md pre, .md blockquote { break-inside: avoid; page-break-inside: avoid; }
-  body[data-view="limits"] #guides { display: none !important; }
-  body[data-view="limits"] #stage, #limits:not([hidden]) { position: static; display: block; overflow: visible; height: auto; padding: 0; background: #fff; }
+  body:not([data-view="guides"]) #guides { display: none !important; }
+  body:not([data-view="guides"]) #stage, .page-view:not([hidden]) { position: static; display: block; overflow: visible; height: auto; padding: 0; background: #fff; }
+  .news-tools, .news-more, .news-gh, .tab-count { display: none !important; }
+  .news-item { border-color: #999 !important; background: #fff !important; }
+  .news-mod, .news-title, .news-day { color: #000 !important; }
   .limits { max-width: none; color: #000; }
   .limits h1, .limits h2, .limits h3, .limits strong, .limits th, .limits .lv-text, .vtag, .vtag.v3, .vtag.v4 { color: #000; }
   .limits h1, .limits h2, .limits h3 { break-after: avoid; page-break-after: avoid; }
@@ -335,3 +366,36 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
     .limits tr, .card, .planner, .lane { break-inside: avoid; page-break-inside: avoid; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* the WHAT'S NEW tab's count of new changes */
+.tab-count { display: inline-block; margin-left: 7px; min-width: 18px; padding: 2px 5px; border-radius: 9px;
+  font: 600 10px/1.2 var(--mono); text-align: center; color: var(--blue); background: var(--yellow); vertical-align: 1px; }
+.tab-count[hidden] { display: none; }
+
+/* WHAT'S NEW */
+.news-since ul { margin: 6px 0; }
+.news-since p { margin: 6px 0 0; }
+.news-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin: 6px 0 4px;
+  -webkit-user-select: none; user-select: none; }
+#news-filter { display: flex; gap: 6px; }
+#news-filter button { font: 600 11px/1 var(--mono); letter-spacing: .06em; padding: 7px 10px; cursor: pointer;
+  color: var(--text); background: transparent; border: 2px solid var(--lightblue); border-radius: 3px; }
+#news-filter button[aria-checked="true"] { color: var(--blue); background: var(--text); border-color: var(--text); }
+#news-filter button:focus-visible, .news-tools input:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.limits h3.news-day { margin: 1.4em 0 .5em; font: 600 12px/1.2 var(--mono); letter-spacing: .06em; color: var(--lightgrey);
+  text-transform: uppercase; }
+.news-item { margin: 0 0 8px; padding: 9px 14px 8px; border: 1px solid rgba(108, 94, 181, .6); border-radius: 4px;
+  background: rgba(0, 0, 0, .12); }
+.news-item.is-new { border-color: var(--yellow); border-left-width: 4px; }
+.news-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 9px; }
+.news-who { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+.news-mod { font-weight: 650; color: var(--white); }
+.limits a.news-mod { color: var(--white); text-decoration: none; }
+.limits a.news-mod:hover { text-decoration: underline; }
+.badge.new { background: var(--yellow); }
+.limits .news-title { margin: 4px 0 2px; }
+.news-item details { margin: 2px 0; font-size: 13px; }
+.news-item summary { cursor: pointer; color: var(--lightgrey); }
+.limits .news-body { margin: 4px 0; white-space: pre-wrap; color: var(--text); }
+.limits a.news-gh { font-size: 12px; }
+.news-more { margin: 10px 0 0; }

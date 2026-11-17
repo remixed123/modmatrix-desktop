@@ -1,6 +1,7 @@
 """Draw the app icon: a firmware chip marked PMM over a dotted drum waveform, on the Mod Matrix's purple.
 
-Writes assets/icon.png (1024 px), assets/icon.icns (macOS) and assets/icon.ico (Windows).
+Writes assets/icon.png (1024 px), assets/icon.icns (macOS), assets/icon.ico (Windows) and
+launcher/ui/icon-128.png (the app's About panel).
 The outputs are committed, so builds (and CI) don't need this script. Needs Pillow and the
 macOS DIN Alternate Bold font: run it on a Mac with  python3 scripts/make_icon.py
 """
@@ -130,7 +131,8 @@ def main():
     img.save(os.path.join(OUT, 'icon.icns'),
              append_images=[img.resize((s, s), Image.LANCZOS) for s in (16, 32, 64, 128, 256, 512)])
     img.save(os.path.join(OUT, 'icon.ico'), sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
-    print('wrote assets/icon.png, icon.icns, icon.ico')
+    img.resize((128, 128), Image.LANCZOS).save(os.path.join(ROOT, 'launcher', 'ui', 'icon-128.png'))   # the About panel
+    print('wrote assets/icon.png, icon.icns, icon.ico, launcher/ui/icon-128.png')
 
 
 if __name__ == '__main__':

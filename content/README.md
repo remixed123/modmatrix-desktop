@@ -7,6 +7,16 @@ offline, and carries a copy of its own (from when it was built) for its first st
 Push changes to `main` only when they are ready for everyone. GitHub's raw file server can
 take a few minutes to serve the new version.
 
+## troubleshooting.md: the TROUBLESHOOTING tab
+
+Written the same way as processor.md below (first line, `<!-- toc: ... -->` on headings, boxes,
+classes). Its only part is `<!-- pmm:contents -->`, the row of links.
+
+## Links to the app's tabs
+
+In either page, `[text](#view-limits)` opens PROCESSOR & MEMORY, `#view-news` WHAT'S NEW,
+`#view-help` TROUBLESHOOTING, `#view-guides` USER GUIDES and `#view-matrix` the MOD MATRIX.
+
 ## processor.md: the PROCESSOR & MEMORY tab's text
 
 The whole page except the parts the app builds. Plain Markdown (headings, paragraphs, **bold**,
@@ -63,7 +73,7 @@ from this file.
 | `display.table_track` | The engine table meter's full width, in × an official voice (widened by itself if an engine is heavier). |
 | `display.planner_scale` | The planner bar's full width, in instructions (widened by itself if needed). |
 | `levels` | Light / Medium / Heavy / Very heavy: `up_to` in × an official voice (`null` = no limit, the last one). `key` picks the colour: `light`, `medium`, `heavy` or `vheavy`. |
-| `engines` | One per engine, in table order. `id` (short, unique, kept: the planner remembers choices by it), `name`, `short` (the planner's name, if shorter), `official` (true for the four stock engines: their own group in the planner), `algos` (optional line under the name), `from`, `low` and `high` (instructions per sample, lightest and heaviest sound; the planner uses `high`), `heaviest`, `hidden` (optional, true: left out of the page, to add an engine before it is released). |
+| `engines` | One per engine, in any order: the page shows the official engines first, then the rest A-Z by `name`. `id` (short, unique, kept: the planner remembers choices by it), `name`, `short` (the planner's name, if shorter), `official` (true for the four stock engines: their own group in the planner), `algos` (optional line under the name), `from`, `low` and `high` (instructions per sample, lightest and heaviest sound; the planner uses `high`), `heaviest`, `hidden` (optional, true: left out of the page, to add an engine before it is released). |
 | `other_mods` | Rows of "Mods that aren't engines": `name`, `runs_on`, `takes`. A mod that costs the sound processor something also gets `planner`: `id` (unique, kept), `label` (the planner's tick box), `voices_34` and `voices_12` (its cost added after voices 3 + 4 and after voices 1 + 2). |
 | `planner.defaults` | The four engine ids the planner starts with. |
 

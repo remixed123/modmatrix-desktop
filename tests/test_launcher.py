@@ -362,6 +362,11 @@ class TestPage(unittest.TestCase):
         for part in self.PARTS:
             self.assertIn(f'data-part="{part}"', shell)
 
+    def test_the_troubleshooting_page_is_readable(self):
+        with open(os.path.join(L.content_dir(), 'troubleshooting.md'), 'rb') as f:
+            text, _ = L.parse_page(f.read())
+        self.assertIn('<!-- pmm:contents -->', text)
+
     def test_online_saved_and_the_apps_own(self):
         self.assertEqual(self.p.get(), {'data': self.own, 'source': 'app'})
         self.text = '<!-- pmm:page format=1 updated=2099-01-01 -->\n# New\n'
@@ -373,6 +378,107 @@ class TestPage(unittest.TestCase):
         for bad in ['# no header\n', '<!-- pmm:page format=99 updated=2099-01-01 -->\n# x\n']:
             self.text = bad
             self.assertEqual(self.p.get()['source'], 'app', bad)
+
+
+def atom(*commits):
+    """A GitHub commits feed: (sha, date, message), newest first."""
+    import html
+    entries = ''.join(
+        f'<entry><id>x</id><link type="text/html" rel="alternate" href="https://github.com/a/b/commit/{sha}"/>'
+        f'<title>{html.escape(msg.splitlines()[0])}</title><updated>{date}</updated>'
+        f'<content type="html">&lt;pre&gt;{html.escape(html.escape(msg))}&lt;/pre&gt;</content></entry>'
+        for sha, date, msg in commits)
+    return f'<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">{entries}</feed>'.encode()
+
+
+class FakeGuides:
+    def __init__(self):
+        self.list = [{'id': 'r/m:voice-a', 'title': 'Akords', 'kind': 'engine', 'repo': 'r/m', 'ref': 'main',
+                      'dir': 'voice-a', 'author': 'r'}]
+
+    def mods(self):
+        return self.list
+
+
+class TestNews(unittest.TestCase):
+    """WHAT'S NEW: each mod's changes; NEW = not marked as seen (by commit, not date)."""
+
+    def setUp(self):
+        self.data = tempfile.mkdtemp()
+        self.feeds, self.down = {}, False
+        self.saved, L.FETCH = L.FETCH, self.fetch
+        self.guides = FakeGuides()
+        self.news = L.News(self.data, self.guides, lambda msg: None)
+        self.set('voice-a', ('a100000', '2026-11-10T00:00:00Z', 'Akords: first\n\nThe details.'))
+        self.set(None, ('f100000', '2026-11-09T00:00:00Z', 'framework change'))
+
+    def tearDown(self):
+        L.FETCH = self.saved
+        shutil.rmtree(self.data)
+
+    def set(self, folder, *commits):
+        url = L.FRAMEWORK_FEED if folder is None else L.FEED_URL.format(repo='r/m', ref='main', path=folder)
+        self.feeds[url] = atom(*commits)
+
+    def fetch(self, url, accept=None, timeout=None):
+        if self.down or url not in self.feeds:
+            raise OSError('down')
+        return self.feeds[url]
+
+    def new(self, fresh=True):
+        r = self.news.get(fresh=fresh)
+        return {i['title']: [c['sha'] for c in i['changes'] if c['new']] for i in r['items']}, r
+
+    def test_parse(self):
+        got = L.parse_feed(atom(('abc1234', '2026-11-17T08:00:00Z', 'Title line <b>\n\nBody & more')))
+        self.assertEqual(got, [{'sha': 'abc1234', 'date': '2026-11-17T08:00:00Z', 'title': 'Title line <b>',
+                                'body': 'Body & more', 'url': 'https://github.com/a/b/commit/abc1234'}])
+
+    def test_first_run_nothing_is_new_then_new_changes_are(self):
+        self.assertEqual(self.new()[0], {'Mod Matrix (perkons-re)': [], 'Akords': []})
+        # a new change, and an older-dated one merged in later: both new
+        self.set('voice-a', ('a300000', '2026-11-12T00:00:00Z', 'newer'), ('a100000', '2026-11-10T00:00:00Z', 'first'),
+                 ('a200000', '2026-11-01T00:00:00Z', 'merged later, older date'))
+        self.assertEqual(self.new()[0]['Akords'], ['a300000', 'a200000'])
+        # marked as seen: nothing new, and it stays so
+        self.news.mark_seen()
+        self.assertEqual(self.new()[0]['Akords'], [])
+
+    def test_a_new_mod_and_a_removed_one(self):
+        self.new()
+        self.guides.list = [{'id': 'r/m:voice-b', 'title': 'Kick Lab', 'kind': 'engine', 'repo': 'r/m',
+                             'ref': 'main', 'dir': 'voice-b', 'author': 'r'}]
+        self.set('voice-b', ('b100000', '2026-11-11T00:00:00Z', 'kick'))
+        _, r = self.new()
+        self.assertEqual([i['title'] for i in r['items'] if i['added']], ['Kick Lab'])
+        self.assertEqual(r['removed'], ['Akords'])
+        self.news.mark_seen()
+        _, r = self.new()
+        self.assertEqual(([i['title'] for i in r['items'] if i['added']], r['removed']), ([], []))
+
+    def test_offline_uses_the_saved_changes(self):
+        self.new()
+        self.down = True
+        _, r = self.new()
+        akords = next(i for i in r['items'] if i['title'] == 'Akords')
+        self.assertEqual(([c['sha'] for c in akords['changes']], akords.get('offline'), r['offline']), (['a100000'], True, []))
+
+    def test_a_feed_first_read_later_starts_as_seen(self):
+        del self.feeds[L.FEED_URL.format(repo='r/m', ref='main', path='voice-a')]
+        _, r = self.new()
+        self.assertEqual(r['offline'], ['Akords'])
+        self.set('voice-a', ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.assertEqual(self.new()[0]['Akords'], [])
+
+    def test_kept_for_a_while(self):
+        self.new()
+        self.set('voice-a', ('a900000', '2026-11-12T00:00:00Z', 'newer'), ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.assertEqual(self.new(fresh=False)[0]['Akords'], [])     # the last read, for NEWS_TTL
+        self.assertEqual(self.new(fresh=True)[0]['Akords'], ['a900000'])
+
+    def test_unsafe_folders_are_skipped(self):
+        self.guides.list = [dict(self.guides.list[0], dir='../x'), dict(self.guides.list[0], repo='bad repo')]
+        self.assertEqual([f['key'] for f in self.news.feeds()], [L.FRAMEWORK_REPO])
 
 
 class TestShell(unittest.TestCase):
@@ -407,6 +513,26 @@ class TestShell(unittest.TestCase):
             self.assertIn(b'data-view="' + view + b'"', body)
         self.assertIn(b'<script src="/ui/limits.js">', body)
 
+    def test_about(self):
+        import html
+        body = self.get('/')[1].decode('utf-8')
+        self.assertIn(f'Version {L.APP_VERSION} &middot; {L.build_name()}', body)
+        self.assertIn(html.escape(L.DISCLAIMER), body)
+        self.assertIn('https://github.com/kiteless/perkons-re"', body)
+        self.assertIn(f'https://github.com/{L.APP_REPO}/releases"', body)
+        self.assertEqual(self.get('/ui/icon-128.png')[0], 200)
+        self.assertEqual(self.get('/ui/about.js')[0], 200)
+
+    def test_mac_and_windows_about_say_the_same(self):
+        import re
+        spec = open(os.path.join(os.path.dirname(L.ui_dir()), '..', 'modmatrix.spec'), encoding='utf-8').read()
+        ns = {'DEVELOPER': L.DEVELOPER}
+        for name in ('CREDIT', 'DISCLAIMER'):
+            src = re.search(rf'^{name} = (.*?)\n(?=\S)', spec, re.M | re.S).group(1)
+            ns[name] = eval(src, ns)
+        self.assertEqual(ns['DISCLAIMER'], L.DISCLAIMER)
+        self.assertTrue(L.CREDIT.startswith(ns['CREDIT'][:-1]), (ns['CREDIT'], L.CREDIT))
+
     def test_guides_api(self):
         status, body = self.get('/guides/mods')
         self.assertEqual((status, len(json.loads(body)['mods'])), (200, 3))
@@ -419,6 +545,15 @@ class TestShell(unittest.TestCase):
         self.assertEqual((status, json.loads(body)['source']), (200, 'app'))
         status, body = self.get('/limits/page')
         self.assertEqual((status, json.loads(body)['source']), (200, 'app'))
+        status, body = self.get('/content/troubleshooting')
+        self.assertEqual((status, json.loads(body)['source']), (200, 'app'))
+        self.assertEqual(self.get('/content/../x')[0], 404)
+        self.assertEqual(self.get('/content/processor')[0], 404)
+
+    def test_news(self):
+        status, body = self.get('/news')                   # FakeWeb has no feeds: offline, nothing saved
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['offline'][:2], ['Mod Matrix (perkons-re)', 'Akords'])
 
     def test_files(self):
         self.assertEqual(self.get('/ui/guides.js')[0], 200)
