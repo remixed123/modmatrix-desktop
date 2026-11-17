@@ -83,70 +83,19 @@
   <section id="limits" role="tabpanel" aria-labelledby="tab-limits" tabindex="-1" hidden>
     <div class="limits">
       <div class="doc-bar"><span>How much the Pērkons can do at once</span>
-        <span class="doc-tools"><button type="button" id="limits-print" title="Print this page, or save it as a PDF">PRINT</button></span></div>
+        <span class="doc-tools"><button type="button" id="limits-copy" title="Copy the whole page, to paste into a document or a message">COPY</button>
+          <button type="button" id="limits-print" title="Print this page, or save it as a PDF">PRINT</button></span></div>
 
-      <h1>Processor and memory</h1>
-      <p class="prelim"><strong>Work in progress.</strong> This is what we know so far, not the final word.
-        The numbers and advice come from measurements and listening on a Pērkons, and they will change as
-        we learn more and as the engines are made lighter. Treat them as a guide, and trust your ears.</p>
-      <p class="lede">Every mod and engine you add takes some of the Pērkons's memory, and an engine takes
-        processor time while it plays. The Mod Matrix looks after memory for you. The processor is yours
-        to manage: how much it takes depends on which engines play on which voices and how they're set,
-        and that changes from moment to moment.</p>
-
-      <div class="pair">
-        <div class="card">
-          <h2 class="card-title">Memory <span class="badge ok">MANAGED FOR YOU</span></h2>
-          <p>The MEMORY pane in the Mod Matrix shows how much room the mods you tick take. A mod that
-            wouldn't fit can't be ticked, and the build checks again. A build that fits always fits:
-            memory doesn't change with what you play.</p>
-        </div>
-        <div class="card">
-          <h2 class="card-title">Processor <span class="badge you">UP TO YOU</span></h2>
-          <p>No one can check it for you before you play: it depends on what's playing. Too much
-            shows up as crackle on voices 1 and 2. Put the heavy engines on voices 3 and 4, and use
-            the planner below to check a kit.</p>
-        </div>
-      </div>
-
-      <a class="plan-cta" href="#l-plan"><span class="plan-cta-title">PLAN A KIT</span>
+      <div id="limits-page" aria-live="polite"><p class="data-note">Loading...</p></div>
+    </div>
+    <!-- The parts the app builds. limits.js moves each into its "pmm:name" marker in
+         content/processor.md (or to the page's end if the marker is missing). -->
+    <div id="limits-parts" hidden>
+      <a class="plan-cta" data-part="plan-button" href="#"><span class="plan-cta-title">PLAN A KIT</span>
         <span>Choose the engine on each voice and see whether the kit should play clean, before you
           try it on the Pērkons.</span><span class="plan-cta-go" aria-hidden="true">&darr;</span></a>
-
-      <nav class="toc" aria-label="On this page">
-        <a href="#l-memory">Memory</a><a href="#l-processor">Processor</a><a href="#l-signs">Signs of too much</a>
-        <a href="#l-where">Where to put engines</a><a href="#l-engines">Engine table</a><a href="#l-plan">Plan a kit</a>
-      </nav>
-
-      <h2 id="l-memory">Memory</h2>
-      <p>The Pērkons has three blocks of memory that mods can use. The <strong>MEMORY</strong> pane in the
-        Mod Matrix has a meter for each. Grey is the firmware's own part, green is what your ticked mods
-        take, and FREE is what's left.</p>
-      <div class="table"><table>
-        <thead><tr><th>meter</th><th>what it holds</th><th>room for mods</th></tr></thead>
-        <tbody>
-          <tr><td><strong>MAIN</strong></td><td>Fast memory on the panel processor: effects, pages, and what mods keep while they run</td><td>about 64 KB</td></tr>
-          <tr><td><strong>VOICE</strong></td><td>Memory on the sound processor: the engines' working memory, set aside for the engines from the start</td><td>about 76 KB</td></tr>
-          <tr><td><strong>STORE</strong></td><td>Larger, a little slower: settings and data such as what mods save with your kits</td><td>about 111 KB</td></tr>
-        </tbody>
-      </table></div>
-      <ul>
-        <li><strong>A mod you can't tick</strong> doesn't fit beside the ones already ticked. Untick another
-          mod to make room.</li>
-        <li><strong>An engine in your build costs memory, not processor time.</strong> It only uses the
-          processor while it's chosen on a voice. Install the engines you like; choose them per kit.</li>
-      </ul>
-
-      <h2 id="l-processor">Processor</h2>
-      <p>The Pērkons has two processors. The <strong>panel processor</strong> runs the panel, pages, sequencer,
-        kit saving, the SD card and the effects (the delay, FX Reverb, FX Freeze). The <strong>sound
-        processor</strong> works out the sound of the four voices, and only that work competes with the
-        voices.</p>
-      <p>It works in tiny blocks: every 32 samples, about two thirds of a millisecond, it works out the next
-        bit of sound for all four voices. It does <strong>voices 3 and 4 first</strong> (with the step
-        triggers), <strong>then voices 1 and 2</strong>, and everything has to be ready before the block is
-        due. If it isn't, voices 1 and 2, done last, come out broken, while voices 3 and 4 stay clean.</p>
-      <figure class="lane" aria-label="One block of sound: triggers, voice 3, voice 4, then voice 1 and voice 2, before the block is due">
+      <nav class="toc" data-part="contents" aria-label="On this page"></nav>
+      <figure class="lane" data-part="diagram" aria-label="One block of sound: triggers, voice 3, voice 4, then voice 1 and voice 2, before the block is due">
         <div class="lane-row">
           <span class="seg s-trig">triggers</span><span class="seg s-v3">voice 3</span><span class="seg s-v4">voice 4</span>
           <span class="seg s-v1">voice 1</span><span class="seg s-v2">voice 2</span><span class="seg s-free">time to spare</span>
@@ -160,84 +109,21 @@
         <figcaption>Top: plenty of time. Bottom: heavy engines on voices 3 and 4 leave voices 1 and 2 too
           little; voice 2 isn't ready in time and crackles.</figcaption>
       </figure>
-      <p><strong>Why the Mod Matrix can't check it.</strong> Memory is fixed when you build, so the Mod
-        Matrix can add it up. Processor time depends on what's playing: which engine is on each voice (you
-        choose that on the Pērkons, per kit), the preset, how many notes, drive, filter settings. The same
-        build can play one kit cleanly and crackle on another.</p>
-
-      <h2 id="l-signs">Signs of too much processor</h2>
-      <ul>
-        <li><strong>Crackle, grit, clicks or dropouts on voice 1 or 2 only</strong>, while voices 3 and 4 stay
-          clean. Mute voices one at a time to find which one breaks.</li>
-        <li>It <strong>comes and goes with how busy the heavy engines are</strong>: bigger chords, more
-          oscillators, drive on, held notes overlapping, several heavy voices sounding at once.</li>
-        <li>It <strong>starts with a kit or engine change</strong> rather than when you turn something up.</li>
-        <li>It <strong>stops</strong> when you mute a heavy voice, choose a lighter preset, or move a heavy
-          engine to voice 3 or 4.</li>
-      </ul>
-      <div class="aside">
-        <strong>Too loud, not too busy.</strong> Crackle on loud, held sounds that goes away when you turn
-        down the voice's LEVEL, the MASTER, or the compressor's Amount and Threshold is the analog output
-        running out of headroom, not the processor. Turn those down instead (the Akords guide has more on
-        this, "Crackle on held chords").
+      <div data-part="engines">
+        <p class="data-note" id="data-note" aria-live="polite">Loading the numbers...</p>
+        <ul class="legend" id="legend"></ul>
+        <div class="table"><table class="engines">
+          <thead><tr><th>engine</th><th>from</th><th>processor</th><th>vs an official voice</th><th>heaviest with</th></tr></thead>
+          <tbody id="engine-rows"></tbody>
+        </table></div>
       </div>
-      <h3>What to do</h3>
-      <ol>
-        <li><strong>Move the heavy engine to voice 3 or 4.</strong> Hold KIT and press MOD for the engine page:
-          rows 1 to 4 are the voices. The engine then plays from that voice's steps, trigger key and output,
-          so move its steps too.</li>
-        <li><strong>Choose a lighter sound</strong>: fewer notes in a chord, a lighter preset, drive off.</li>
-        <li><strong>Swap one heavy engine</strong> for a light one or an official engine.</li>
-      </ol>
-
-      <h2 id="l-where">Where to put engines</h2>
-      <div class="pair">
-        <div class="card voices">
-          <h3>Voices 1 and 2 <span class="muted">done last</span></h3>
-          <p>The <strong>official engines</strong> and <strong>light</strong> engines (Zibens, Step Sampler playing forward or reverse).
-            At most <strong>one</strong> medium or heavy engine here, beside a light one.</p>
-        </div>
-        <div class="card voices first">
-          <h3>Voices 3 and 4 <span class="muted">done first</span></h3>
-          <p>The <strong>medium</strong>, <strong>heavy</strong> and <strong>very heavy</strong> engines:
-            Akords, Synth Lab, Kick Lab with its effects on, Step Sampler on granular.</p>
-        </div>
-      </div>
-      <ul>
-        <li>Avoid two heavy engines on voices 1 and 2 together, Akords especially.</li>
-        <li>Four heavy engines at once is too much wherever they are. The planner below shows how much a kit
-          takes.</li>
-        <li>An engine costs nothing while it isn't chosen on a voice, so a build can include all of them.</li>
-      </ul>
-
-      <h2 id="l-engines">How much processor each engine uses</h2>
-      <p>While playing, compared with an official engine. Each engine's range runs from its lightest sound
-        to its heaviest.</p>
-      <p class="prelim"><strong>Engines change.</strong> These are the engines as they were when we measured
-        them. An update can make an engine lighter on the processor, or heavier when it adds features, so
-        the numbers here may be behind. As always, trust your ears.</p>
-      <ul class="legend" id="legend"></ul>
-      <div class="table"><table class="engines">
-        <thead><tr><th>engine</th><th>from</th><th>processor</th><th>vs an official voice</th><th>heaviest with</th></tr></thead>
-        <tbody id="engine-rows"></tbody>
-      </table></div>
-      <h3>Mods that aren't engines</h3>
-      <div class="table"><table>
+      <div class="table" data-part="other-mods"><table>
         <thead><tr><th>mod</th><th>runs on</th><th>takes from the voices</th></tr></thead>
-        <tbody>
-          <tr><td>FX SIDECHAIN</td><td>sound processor</td><td>a little: about ¾ of an official voice while ducking, very little otherwise</td></tr>
-          <tr><td>FX REVERB, FX FREEZE</td><td>panel processor</td><td>nothing</td></tr>
-          <tr><td>8 TRACKS, PER TRACK LFO, PER PATTERN BPM</td><td>panel processor</td><td>nothing</td></tr>
-        </tbody>
+        <tbody id="other-rows"></tbody>
       </table></div>
-      <p class="muted">Engines and mods not listed here: see their user guide.</p>
-
-      <h2 id="l-plan">Plan a kit</h2>
-      <p>Choose the engine on each voice. The bar adds them up the way the sound processor does, with each
-        engine's <strong>heaviest</strong> sound, so most of the time you have more room than it shows.</p>
-      <div class="planner">
+      <div class="planner" data-part="planner">
         <div class="picks" id="picks"></div>
-        <label class="sc"><input type="checkbox" id="pick-sc"> FX SIDECHAIN ducking</label>
+        <div class="fx" id="pick-fx"></div>
         <div class="meter" id="meter" aria-hidden="true">
           <div class="bar" id="bar"></div>
           <span class="mark clean" id="mark-clean"><span>played clean</span></span>
@@ -245,12 +131,6 @@
         </div>
         <p class="verdict" id="verdict" aria-live="polite"></p>
       </div>
-
-      <h2>How these numbers were found</h2>
-      <p>Each engine was run with the real firmware in an emulator, counting the work it does per sample,
-        and the limit was found by ear on a Pērkons, with real engines playing. The four official voices
-        together use about half of what played clean. The numbers are a guide: the chip also loses some time to memory, and the limit
-        between "played clean" and "broke" hasn't been tested, so leave some room.</p>
     </div>
   </section>
 </div>

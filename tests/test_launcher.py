@@ -267,6 +267,114 @@ class TestGuides(unittest.TestCase):
         self.assertEqual(self.web.log, [])
 
 
+PROCESSOR_URL = L.CONTENT_URL.format(name='processor.json')
+
+
+def processor(updated, fmt=1, **kw):
+    return {'format': fmt, 'updated': updated, 'official': 175, 'engines': [], **kw}
+
+
+class FakeContent:
+    def __init__(self):
+        self.file, self.log = processor('2099-01-01', note='online'), []
+
+    def __call__(self, url, accept=None, timeout=None):
+        self.log.append(url)
+        if url == PROCESSOR_URL and self.file is not None:
+            return json.dumps(self.file).encode()
+        raise OSError('network down')
+
+
+class TestProcessor(unittest.TestCase):
+    """The PROCESSOR & MEMORY numbers: GitHub's, else the newer of last time's and the app's own."""
+
+    def setUp(self):
+        self.data = tempfile.mkdtemp()
+        self.web, self.saved = FakeContent(), L.FETCH
+        L.FETCH = self.web
+        self.p = L.Content(self.data, lambda msg: None, 'processor.json', L.parse_processor)
+        with open(os.path.join(L.content_dir(), 'processor.json'), encoding='utf-8') as f:
+            self.own = json.load(f)
+
+    def tearDown(self):
+        L.FETCH = self.saved
+        shutil.rmtree(self.data)
+
+    def test_the_apps_own_copy_is_readable(self):
+        self.assertTrue(L.processor_readable(self.own))
+        self.assertTrue(self.own['engines'])
+        for e in self.own['engines']:
+            self.assertLessEqual(e['low'], e['high'], e['id'])
+        ids = [e['id'] for e in self.own['engines']]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertTrue(set(self.own['planner']['defaults']) <= set(ids))
+
+    def test_online_is_used_and_kept_for_offline(self):
+        self.assertEqual(self.p.get(), {'data': self.web.file, 'source': 'online'})
+        self.web.file = None
+        self.assertEqual(self.p.get(), {'data': processor('2099-01-01', note='online'), 'source': 'saved'})
+
+    def test_offline_on_the_first_start_uses_the_apps_own(self):
+        self.web.file = None
+        self.assertEqual(self.p.get(), {'data': self.own, 'source': 'app'})
+
+    def test_a_saved_copy_older_than_the_apps_own_is_not_used(self):
+        self.web.file = processor('2000-01-01')
+        self.p.get()
+        self.web.file = None
+        self.assertEqual(self.p.get()['source'], 'app')
+
+    def test_a_newer_format_is_ignored(self):
+        self.p.get()                                     # a readable one saved
+        for bad in [processor('2099-02-01', fmt=L.PROCESSOR_FORMAT + 1), {'format': 1}, [1, 2], 'x']:
+            self.web.file = bad
+            got = self.p.get()
+            self.assertEqual((got['source'], got['data']['updated']), ('saved', '2099-01-01'), bad)
+
+
+class TestPage(unittest.TestCase):
+    """The PROCESSOR & MEMORY text: the same fallbacks, and the app's own copy has every part."""
+
+    PARTS = ['plan-button', 'contents', 'diagram', 'engines', 'other-mods', 'planner']
+
+    def setUp(self):
+        self.data = tempfile.mkdtemp()
+        self.text = None
+        self.saved, L.FETCH = L.FETCH, self.fetch
+        self.p = L.Content(self.data, lambda msg: None, 'processor.md', L.parse_page)
+        with open(os.path.join(L.content_dir(), 'processor.md'), encoding='utf-8') as f:
+            self.own = f.read()
+
+    def fetch(self, url, accept=None, timeout=None):
+        if url == L.CONTENT_URL.format(name='processor.md') and self.text is not None:
+            return self.text.encode()
+        raise OSError('network down')
+
+    def tearDown(self):
+        L.FETCH = self.saved
+        shutil.rmtree(self.data)
+
+    def test_the_apps_own_copy_has_every_part(self):
+        import re
+        L.parse_page(self.own.encode())
+        self.assertEqual(sorted(re.findall(r'^<!-- pmm:([a-z-]+) -->$', self.own, re.M)), sorted(self.PARTS))
+        shell = open(os.path.join(L.ui_dir(), 'shell.html'), encoding='utf-8').read()
+        for part in self.PARTS:
+            self.assertIn(f'data-part="{part}"', shell)
+
+    def test_online_saved_and_the_apps_own(self):
+        self.assertEqual(self.p.get(), {'data': self.own, 'source': 'app'})
+        self.text = '<!-- pmm:page format=1 updated=2099-01-01 -->\n# New\n'
+        self.assertEqual(self.p.get(), {'data': self.text, 'source': 'online'})
+        new, self.text = self.text, None
+        self.assertEqual(self.p.get(), {'data': new, 'source': 'saved'})
+
+    def test_unreadable_pages_are_ignored(self):
+        for bad in ['# no header\n', '<!-- pmm:page format=99 updated=2099-01-01 -->\n# x\n']:
+            self.text = bad
+            self.assertEqual(self.p.get()['source'], 'app', bad)
+
+
 class TestShell(unittest.TestCase):
     def setUp(self):
         self.data = tempfile.mkdtemp()
@@ -305,6 +413,12 @@ class TestShell(unittest.TestCase):
         status, body = self.get('/guides/readme?repo=remixed123/perkons-re-mods&ref=main&path=voice-akords/README.md')
         self.assertEqual((status, json.loads(body)['text']), (200, '# Akords\n'))
         self.assertEqual(self.get('/guides/readme?repo=a/b&ref=main&path=../x.md')[0], 400)
+
+    def test_limits_data(self):
+        status, body = self.get('/limits/data')            # FakeWeb has no processor.json: the app's own
+        self.assertEqual((status, json.loads(body)['source']), (200, 'app'))
+        status, body = self.get('/limits/page')
+        self.assertEqual((status, json.loads(body)['source']), (200, 'app'))
 
     def test_files(self):
         self.assertEqual(self.get('/ui/guides.js')[0], 200)

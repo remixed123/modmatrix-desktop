@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "updated": "2026-11-17",
+  "official": 175,
+  "limits": {
+    "triggers": 100,
+    "clean": 1850,
+    "broke": 2100,
+    "clean_12": 1400,
+    "broke_12": 1650,
+    "tip_margin": 50
+  },
+  "display": {
+    "table_track": 4.5,
+    "planner_scale": 2800
+  },
+  "levels": [
+    { "key": "light", "name": "Light", "up_to": 1.5, "says": "up to 1½× an official voice" },
+    { "key": "medium", "name": "Medium", "up_to": 3, "says": "1½× to 3×" },
+    { "key": "heavy", "name": "Heavy", "up_to": 4, "says": "3× to 4×" },
+    { "key": "vheavy", "name": "Very heavy", "up_to": null, "says": "more than 4×" }
+  ],
+  "engines": [
+    { "id": "o1", "name": "Official engine 1", "short": "Official 1", "official": true,
+      "algos": "Fold Drum 1, Wavetable, Simple", "from": "Erica Synths", "low": 140, "high": 175,
+      "heaviest": "about the same on every ALGO and MODE" },
+    { "id": "o2", "name": "Official engine 2", "short": "Official 2", "official": true,
+      "algos": "Fold Drum 2, Wavetable, Complex", "from": "Erica Synths", "low": 165, "high": 195,
+      "heaviest": "about the same on every ALGO and MODE" },
+    { "id": "o3", "name": "Official engine 3", "short": "Official 3", "official": true,
+      "algos": "Resonant drums, Slap, Karplus–Chord", "from": "Erica Synths", "low": 140, "high": 310,
+      "heaviest": "depends on ALGO and MODE" },
+    { "id": "o4", "name": "Official engine 4", "short": "Official 4", "official": true,
+      "algos": "Noise hat, Noise–tone, Acoustic hats", "from": "Erica Synths", "low": 55, "high": 490,
+      "heaviest": "depends on ALGO and MODE; the sample hats are the lightest" },
+    { "id": "zb", "name": "Zibens", "from": "kiteless", "low": 125, "high": 325,
+      "heaviest": "the wavefolded sine; the square is the lightest" },
+    { "id": "ss", "name": "Step Sampler", "from": "kiteless", "low": 175, "high": 510,
+      "heaviest": "granular with PARAM1 (texture) fully left: tiny, dense grains; forward and reverse cost about the same as an official voice" },
+    { "id": "oh", "name": "3 Oh", "from": "remixed123", "low": 200, "high": 265,
+      "heaviest": "Overdrive or Distortion on; clean it costs about an official voice" },
+    { "id": "sy", "name": "Synth Lab", "from": "remixed123", "low": 250, "high": 420,
+      "heaviest": "three oscillators with sync, the wavefolder, every LFO, hot drive" },
+    { "id": "kl", "name": "Kick Lab", "from": "remixed123", "low": 190, "high": 480,
+      "heaviest": "drive, delay, rumble and noise all on; most presets alone are close to an official voice" },
+    { "id": "ak", "name": "Akords", "from": "remixed123", "low": 380, "high": 660,
+      "heaviest": "Hollow, then Bell, Organ and Keys; every chord type costs about the same; the formant presets (Talk, Wah) are the lightest" }
+  ],
+  "other_mods": [
+    { "name": "FX SIDECHAIN", "runs_on": "sound processor",
+      "takes": "a little: about ¾ of an official voice while ducking, very little otherwise",
+      "planner": { "id": "sc", "label": "FX SIDECHAIN ducking", "voices_34": 65, "voices_12": 65 } },
+    { "name": "FX REVERB, FX FREEZE", "runs_on": "panel processor", "takes": "nothing" },
+    { "name": "8 TRACKS, PER TRACK LFO, PER PATTERN BPM", "runs_on": "panel processor", "takes": "nothing" }
+  ],
+  "planner": {
+    "defaults": ["o1", "o2", "o3", "o4"]
+  }
+}

@@ -21,6 +21,7 @@ function showView(view) {
   $("limits").hidden = view !== "limits";
   document.body.dataset.view = view;                    // print styles: the view on screen
   if (view === "guides" && !state.mods.length && !state.loading) loadMods();
+  if (view === "limits") limits.shown();
 }
 
 /* -- the list ---------------------------------------------------------------------------------- */
@@ -204,22 +205,32 @@ function bar(m, tools = false) {
 
 /* -- copy and print ---------------------------------------------------------------------------- */
 
-/* What goes on the clipboard from a guide: its HTML without the page's colours (the browser
- * would copy them inline: pale purple text in a document) and its text. A selection outside
- * the guide is copied as the browser does it. */
-let copying = null;                                    // set by COPY: the whole guide
+/* What goes on the clipboard from a guide or the PROCESSOR & MEMORY page: its HTML without the
+ * page's colours (the browser would copy them inline: pale purple text in a document) and its
+ * text. A selection elsewhere is copied as the browser does it. */
+let copying = null;                                    // set by COPY: the whole guide or page
+const guideRoot = () => $("doc").querySelector(".md");
+const limitsRoot = () => document.querySelector("#limits .limits");
+const shownRoot = () => (!$("limits").hidden ? limitsRoot() : !$("guides").hidden ? guideRoot() : null);
+const selIn = (root) => {
+  const sel = window.getSelection();
+  return root && sel.rangeCount && !sel.isCollapsed && root.contains(sel.getRangeAt(0).commonAncestorContainer)
+    ? sel.getRangeAt(0) : null;
+};
+
 document.addEventListener("copy", (e) => {
-  const md = $("doc").querySelector(".md");
-  let html, text;
+  let html, text, range;
   if (copying) {
     ({ html, text } = copying);
-  } else {
-    const sel = window.getSelection();
-    if (!md || !sel.rangeCount || sel.isCollapsed || !md.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+  } else if ((range = selIn(guideRoot()))) {
     const div = document.createElement("div");
-    div.append(sel.getRangeAt(0).cloneContents());
+    div.append(range.cloneContents());
     html = cleanHtml(div);
-    text = sel.toString();
+    text = window.getSelection().toString();
+  } else if ((range = selIn(limitsRoot()))) {
+    ({ html, text } = limits.forCopy(range.cloneContents()));
+  } else {
+    return;
   }
   e.clipboardData.setData("text/html", html);
   e.clipboardData.setData("text/plain", text);
@@ -236,10 +247,11 @@ function cleanHtml(node) {
   return c.innerHTML;
 }
 
-/* Right-click in a guide: the app's own menu (pywebview empties or turns off the system one in a
- * release build). The selection is kept while the menu is open: its items don't take focus on
- * mouse down. */
+/* Right-click in a guide or on the PROCESSOR & MEMORY page: the app's own menu (pywebview empties
+ * or turns off the system one in a release build). The selection is kept while the menu is open:
+ * its items don't take focus on mouse down. */
 const ctx = { menu: null, range: null };
+const onLimits = () => !$("limits").hidden;
 
 function ctxMenu() {
   if (ctx.menu) return ctx.menu;
@@ -261,17 +273,21 @@ function ctxMenu() {
     try { document.execCommand("copy"); } catch { /* nothing selected */ }
   });
   item("Select all", () => {
-    const md = $("doc").querySelector(".md");
-    if (!md) return;
+    const root = shownRoot();
+    if (!root) return;
     const r = document.createRange();
-    r.selectNodeContents(md);
+    r.selectNodeContents(root);
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(r);
   });
   m.append(el("hr"));
-  item("Copy whole guide", () => { const b = $("doc").querySelector(".doc-tools button"); if (b) copyGuide(b); });
-  item("Print guide", () => window.print());
+  ctx.whole = item("Copy whole guide", () => {
+    if (onLimits()) return limits.copyAll($("limits-copy"));
+    const b = $("doc").querySelector(".doc-tools button");
+    if (b) copyGuide(b);
+  });
+  ctx.print = item("Print guide", () => window.print());
   m.addEventListener("keydown", (e) => {
     const items = [...m.querySelectorAll("button:not(:disabled)")];
     const i = items.indexOf(document.activeElement);
@@ -294,11 +310,12 @@ function restoreSel() {
 
 function openCtx(x, y) {
   const m = ctxMenu();
-  const sel = window.getSelection();
-  const md = $("doc").querySelector(".md");
-  ctx.range = sel.rangeCount && !sel.isCollapsed && md && md.contains(sel.getRangeAt(0).commonAncestorContainer)
-    ? sel.getRangeAt(0).cloneRange() : null;
+  const range = selIn(shownRoot());
+  ctx.range = range ? range.cloneRange() : null;
   ctx.copy.disabled = !ctx.range;
+  const what = onLimits() ? "page" : "guide";
+  ctx.whole.textContent = `Copy whole ${what}`;
+  ctx.print.textContent = `Print ${what}`;
   m.hidden = false;
   const w = m.offsetWidth, h = m.offsetHeight;
   m.style.left = Math.max(4, Math.min(x, window.innerWidth - w - 4)) + "px";
@@ -309,36 +326,41 @@ function closeCtx() {
   if (ctx.menu && !ctx.menu.hidden) ctx.menu.hidden = true;
 }
 
-$("doc").addEventListener("contextmenu", (e) => {
-  if (!e.target.closest(".md")) return;
-  e.preventDefault();
-  openCtx(e.clientX, e.clientY);
-});
+for (const [pane, inside] of [[$("doc"), ".md"], [$("limits"), ".limits"]]) {
+  pane.addEventListener("contextmenu", (e) => {
+    if (!e.target.closest(inside) || e.target.closest("select")) return;
+    e.preventDefault();
+    openCtx(e.clientX, e.clientY);
+  });
+  pane.addEventListener("scroll", closeCtx);
+}
 document.addEventListener("mousedown", (e) => { if (ctx.menu && !ctx.menu.contains(e.target)) closeCtx(); });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeCtx();
   if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {     // the keyboard's menu key
-    const md = $("doc").querySelector(".md");
-    if (!md || $("guides").hidden) return;
+    const root = shownRoot();
+    if (!root) return;
     e.preventDefault();
-    const r = md.getBoundingClientRect();
+    const r = root.getBoundingClientRect();
     openCtx(r.left + 40, Math.max(r.top, 60) + 20);
     ctx.menu.querySelector("button:not(:disabled)").focus();
   }
 });
-$("doc").addEventListener("scroll", closeCtx);
 window.addEventListener("blur", closeCtx);
 window.addEventListener("resize", closeCtx);
 
-async function copyGuide(btn) {
+function copyGuide(btn) {
   const md = $("doc").querySelector(".md");
-  if (!md) return;
-  const html = cleanHtml(md), text = md.innerText;
+  if (md) copyWhole(md, btn, cleanHtml(md), md.innerText);
+}
+
+/* html and text on the clipboard; btn says whether it worked */
+async function copyWhole(root, btn, html, text) {
   let ok = false;
-  // the copy event above, with the guide selected (WebKit copies only with a selection)
+  // the copy event above, with root selected (WebKit copies only with a selection)
   const sel = window.getSelection();
   const range = document.createRange();
-  range.selectNodeContents(md);
+  range.selectNodeContents(root);
   sel.removeAllRanges();
   sel.addRange(range);
   copying = { html, text };

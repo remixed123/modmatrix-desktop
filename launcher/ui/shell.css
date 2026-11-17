@@ -192,7 +192,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0; }
 .card { padding: 14px 16px 4px; border: 2px solid var(--lightblue); border-radius: 5px; background: rgba(0, 0, 0, .15); }
-.card h2.card-title, .card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 8px;
+.card h2, .card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 8px;
   padding: 0; border: 0; font-size: 17px; }
 .card.voices.first { border-color: var(--yellow); }
 .badge { font: 600 10px/1 var(--mono); letter-spacing: .08em; padding: 4px 6px; border-radius: 3px; color: var(--blue); }
@@ -203,7 +203,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   border: 2px solid var(--lightblue); border-radius: 3px; }
 .toc a:hover { color: var(--white); border-color: var(--text); }
 .toc a:focus-visible, #limits select:focus-visible, #limits input:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
-.prelim { margin: 0 0 1.2em; padding: 10px 14px; border-left: 4px solid var(--yellow); background: rgba(0, 0, 0, .18);
+.prelim { margin: 0 0 1em; padding: 10px 14px; border-left: 4px solid var(--yellow); background: rgba(0, 0, 0, .18);
   font-size: 14px; color: var(--yellow); }
 .prelim strong { color: var(--yellow); }
 .limits .plan-cta { display: flex; align-items: center; gap: 16px; margin: 0 0 14px; padding: 12px 16px; text-decoration: none;
@@ -214,6 +214,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   color: var(--blue); background: var(--yellow); }
 .plan-cta-go { flex: none; margin-left: auto; font-size: 20px; color: var(--yellow); }
 .aside { margin: 0 0 1em; padding: 10px 14px; border-left: 4px solid var(--cyan); background: rgba(0, 0, 0, .18); font-size: 14px; }
+.limits .prelim > :last-child, .limits .aside > :last-child { margin-bottom: 0; }
 
 /* the block diagram: a row is one block of sound, the line is when it's due */
 .lane { margin: 8px 0 1.2em; padding-right: 70px; }
@@ -231,7 +232,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .s-trig { background: var(--lightgrey); }
 .s-v3, .s-v4 { background: var(--cyan); }
 .s-v1, .s-v2 { background: var(--text); }
-.s-sc { background: var(--lightgreen); }
+.s-fx { background: var(--lightgreen); }
 
 /* the engine table's meter: lightest to heaviest sound, against the level bands */
 .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; padding: 0 !important; font-size: 13px; }
@@ -256,7 +257,14 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .vtag.v3, .vtag.v4 { color: var(--cyan); }
 #limits select { width: 100%; padding: 7px 8px; font: 14px/1.2 var(--sans); color: var(--white);
   background: rgba(0, 0, 0, .3); border: 2px solid var(--lightblue); border-radius: 3px; }
-.planner .sc { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 13px; }
+.planner .fx { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 12px 0 0; font-size: 13px; }
+.planner .fx:empty { display: none; }
+.fx-pick { display: inline-flex; align-items: center; gap: 8px; }
+.data-note { margin: 0 0 1em; font-size: 13px; color: var(--lightgrey); }
+.data-note.offline-note { color: var(--yellow); }
+.data-note.err { color: #e09a8a; }
+/* a copy of the page while its text is read (copying), out of sight */
+.copy-stage { position: fixed; left: -100000px; top: 0; width: 900px; }
 .meter { position: relative; margin: 34px 0 10px; height: 34px; border-radius: 3px; background: rgba(0, 0, 0, .3); }
 .meter .bar { display: flex; height: 100%; overflow: hidden; border-radius: 3px; }
 .meter .seg { flex: none; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap;
@@ -319,7 +327,8 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
   .limits th, .limits td, .card, .planner { border-color: #999; }
   .limits tr:nth-child(even) td, .card, .planner, .aside, .verdict, .track, .meter { background: #f6f6f6; }
   .limits .muted, .lane figcaption, .limits .small { color: #555; }
-  .toc, .doc-tools, .planner .sc, .plan-cta { display: none !important; }
+  .toc, .doc-tools, .planner .fx, .plan-cta { display: none !important; }
+  .data-note, .data-note.offline-note { color: #555; }
   .prelim, .prelim strong { color: #000; border-left-color: #999; background: #f6f6f6; }
   #limits select { color: #000; background: #fff; border-color: #999; }
   .lane .due { border-left-color: #000; color: #000; }

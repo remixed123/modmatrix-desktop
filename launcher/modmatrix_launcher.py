@@ -820,12 +820,93 @@ class Guides:
         return text, False
 
 
+# -- PROCESSOR & MEMORY: its text and numbers ---------------------------------------------------
+#
+# The page is built from content/processor.md (the text) and content/processor.json (the engine
+# table, the other mods' table and the planner), read from this app's repo on GitHub (main):
+# pushing new ones updates every app, no release. Each has a format number: an app ignores a
+# layout newer than it knows and keeps its saved copy.
+
+CONTENT_URL = f'https://raw.githubusercontent.com/{APP_REPO}/main/content/' + '{name}'
+PROCESSOR_FORMAT = 1         # the newest processor.json layout this app can read
+PAGE_FORMAT = 1              # the newest processor.md layout (markers, callouts, classes) this app can read
+PAGE_HEAD = re.compile(r'﻿?<!--\s*pmm:page\s+format=(\d+)\s+updated=(\d{4}-\d{2}-\d{2})\s*-->')
+
+
+def content_dir():
+    """The app's own copies of content/: content/ in the frozen app, the repo's when run from source."""
+    if getattr(sys, 'frozen', False):
+        return os.path.join(sys._MEIPASS, 'content')
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'content')
+
+
+def processor_readable(obj):
+    return (isinstance(obj, dict) and type(obj.get('format')) is int and 1 <= obj['format'] <= PROCESSOR_FORMAT
+            and isinstance(obj.get('updated'), str) and isinstance(obj.get('engines'), list))
+
+
+def parse_processor(raw):
+    """processor.json -> (the object, its date); ValueError if this app can't read it."""
+    obj = json.loads(raw.decode('utf-8'))
+    if not processor_readable(obj):
+        raise ValueError('not a processor.json this app can read (a newer format?)')
+    return obj, obj['updated']
+
+
+def parse_page(raw):
+    """processor.md -> (its text, its date); ValueError if this app can't read it."""
+    text = raw.decode('utf-8')
+    m = PAGE_HEAD.match(text)
+    if not m or not 1 <= int(m[1]) <= PAGE_FORMAT:
+        raise ValueError('not a processor.md this app can read (no pmm:page line, or a newer format?)')
+    return text, m[2]
+
+
+class Content:
+    """A file in content/: from GitHub when it answers with one this app can read; else the
+    copy from last time or the app's own, whichever is newer."""
+
+    def __init__(self, data, log, name, parse):
+        self.name, self.parse, self.log = name, parse, log
+        self.saved = os.path.join(data, 'content', name)
+
+    def _load(self, path):
+        try:
+            with open(path, 'rb') as f:
+                return self.parse(f.read())
+        except (OSError, ValueError):
+            return None
+
+    def get(self):
+        """{'data': the file (object or text), 'source': 'online' | 'saved' | 'app'}"""
+        try:
+            raw = FETCH(CONTENT_URL.format(name=self.name), timeout=README_TIMEOUT)
+            value, _ = self.parse(raw)
+        except Exception as e:
+            self.log(f'{self.name}: {e}')
+        else:
+            os.makedirs(os.path.dirname(self.saved), exist_ok=True)
+            tmp = f'{self.saved}.{threading.get_ident()}.part'
+            with open(tmp, 'wb') as f:
+                f.write(raw)
+            os.replace(tmp, self.saved)
+            return {'data': value, 'source': 'online'}
+        saved, own = self._load(self.saved), self._load(os.path.join(content_dir(), self.name))
+        if saved and (not own or saved[1] >= own[1]):
+            return {'data': saved[0], 'source': 'saved'}
+        if own:
+            return {'data': own[0], 'source': 'app'}
+        raise LaunchError(f'This page could not be loaded ({self.name}).')
+
+
 class Shell:
     """The local web server for the app's page (127.0.0.1, a free port)."""
 
     def __init__(self, matrix_url, data, log, fresh=None, updates=None):
         self.matrix_url = matrix_url
         self.guides = Guides(data, matrix_url, log, fresh)
+        self.processor = Content(data, log, 'processor.json', parse_processor)
+        self.processor_page = Content(data, log, 'processor.md', parse_page)
         self.updates = updates
         self.log = log
         self.httpd, self.url = None, None
@@ -899,6 +980,10 @@ class Shell:
                         return self.send_json(shell.updates.check(quiet=q.get('quiet') == ['1']))
                     if url.path == '/updates/state' and shell.updates:
                         return self.send_json(shell.updates.state())
+                    if url.path == '/limits/data':
+                        return self.send_json(shell.processor.get())
+                    if url.path == '/limits/page':
+                        return self.send_json(shell.processor_page.get())
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))
