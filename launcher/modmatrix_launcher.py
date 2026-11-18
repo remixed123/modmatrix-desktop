@@ -516,10 +516,11 @@ class Server:
 
 # -- CHECK FOR UPDATES ---------------------------------------------------------------------------
 #
-# What changed since the Mod Matrix started: the app itself (a newer release), perkons-re (only
-# used after a restart), the mods offered (the Mod Matrix reads the list, RAM figures and
-# requirements once, at start: a restart needed) and mods whose code changed (a build fetches a
-# mod's code as it is then: nothing to do). UPDATE NOW restarts the Mod Matrix inside the app.
+# What needs the person since the Mod Matrix started: the app itself (a newer release),
+# perkons-re (only used after a restart) and the mods offered (the Mod Matrix reads the list, RAM
+# figures and requirements once, at start: a restart needed). UPDATE NOW restarts the Mod Matrix
+# inside the app. Mods whose code changed are not here: a build fetches a mod's code as it is
+# then, and WHAT'S NEW (News, below) lists those changes.
 
 # a mod's fields that matter for building, and what to call a change of them
 CHANGE_NAMES = (('memory', 'RAM figures'), ('requires', 'requirements'), ('conflicts', 'conflicts'),
@@ -584,7 +585,7 @@ class Updates:
         return {(o['repo'], o.get('ref') or 'main') for o in options if o.get('repo') and not o.get('local')}
 
     def compare(self, repo, old, new):
-        """(first lines of the commit messages, newest first; files changed), or None (the API refused)."""
+        """perkons-re's new commits (first lines of the messages, newest first), or None (the API refused)."""
         key = (repo, old, new)
         if key not in self.compares:
             self.compares[key] = self._compare(repo, old, new)
@@ -600,12 +601,12 @@ class Updates:
             self.log(f'updates: compare {repo}: {e}')
             return None
         msgs = [first_line(x.get('commit', {}).get('message')) for x in reversed(c.get('commits', []))]
-        return {'commits': [m for m in msgs if m][:MAX_COMMITS], 'more': max(0, len(msgs) - MAX_COMMITS),
-                'files': [f['filename'] for f in c.get('files', [])]}
+        return {'commits': [m for m in msgs if m][:MAX_COMMITS], 'more': max(0, len(msgs) - MAX_COMMITS)}
 
     def probe(self):
         """What GitHub has now, cheaply (no API calls): the newest app release, and the
-        commit perkons-re and each mod repo are at. {app, framework, repos, failed}."""
+        commit perkons-re and each mod repo are at (a mod repo that moved may have changed the
+        mod list: read again). {app, framework, repos, failed}."""
         got = {'app': None, 'framework': None, 'repos': {}, 'failed': []}
         try:
             where = REDIRECT(APP_LATEST_URL) or ''
@@ -641,7 +642,7 @@ class Updates:
 
     @staticmethod
     def found_anything(r):
-        return bool(r['app'] or r['restart'] or r['code'] or r['unknown'])
+        return bool(r['app'] or r['restart'])
 
     def _remember(self, out, quiet):
         if self.found_anything(out):
@@ -662,8 +663,8 @@ class Updates:
                 self.flag['cleared'] = str(key)[:4000]
 
     def _check(self, got):
-        out = {'this_app': {'version': APP_VERSION, 'latest': None}, 'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [], 'code': [],
-               'unknown': [], 'failed': list(got['failed']), 'restart': False}
+        out = {'this_app': {'version': APP_VERSION, 'latest': None}, 'app': None, 'framework': None, 'added': [], 'removed': [], 'changed': [],
+               'failed': list(got['failed']), 'restart': False}
         # the app
         tag = got['app']
         if tag:
@@ -703,19 +704,6 @@ class Updates:
                     what.append(name)
             if what:
                 out['changed'].append({**info(now[i]), 'what': what})
-        # mods whose code changed (their folders), repo by repo
-        listed = {m['id'] for m in out['added'] + out['changed']}
-        for (repo, ref), old in sorted(self.base['repos'].items()):
-            new = got['repos'].get((repo, ref))
-            if repo.lower() in failed or not new or new == old:
-                continue
-            diff = self.compare(repo, old, new)
-            if diff is None:
-                out['unknown'].append(repo)
-                continue
-            for o in sorted((o for o in now.values() if o['repo'] == repo and o['id'] not in listed), key=title):
-                if any(f.startswith(o['dir'].rstrip('/') + '/') for f in diff['files']):
-                    out['code'].append(info(o))
         out['restart'] = bool(out['framework'] or out['added'] or out['removed'] or out['changed'])
         self.log('updates: ' + json.dumps({k: v for k, v in out.items() if v}))
         return out
@@ -912,8 +900,8 @@ class Content:
 #
 # GitHub's change feed of each mod's folder (and of perkons-re): the newest 20 changes, with
 # dates and messages, from github.com itself (not its API: no hourly limit). Kept in the data
-# folder for offline use. "Seen" is the changes the person has marked as seen (CLEAR in the
-# updates panel, or MARK ALL AS SEEN), by commit, not by date: a change merged in later, with an
+# folder for offline use. "Seen" is the changes the person has marked as seen (MARK ALL AS SEEN on the
+# WHAT'S NEW tab), by commit, not by date: a change merged in later, with an
 # older date, still counts as new. On the very first run everything counts as seen.
 
 FEED_URL = 'https://github.com/{repo}/commits/{ref}/{path}.atom'
@@ -1043,7 +1031,7 @@ class News:
         return {'at': time.time(), 'feeds': keep, 'mods': {f['key']: f['title'] for f in feeds}}
 
     def mark_seen(self):
-        """CLEAR / MARK ALL AS SEEN: everything shown now counts as seen."""
+        """MARK ALL AS SEEN: everything shown now counts as seen."""
         result = self.get()
         with self.lock:
             seen = self._seen_now(result['items'], self._read('seen.json', {}))

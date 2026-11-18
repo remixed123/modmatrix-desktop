@@ -1,19 +1,18 @@
-/* CHECK FOR UPDATES (right of the tabs): asks the launcher what changed since the Mod Matrix
- * started (/updates/check) and shows it in a panel. UPDATE NOW (/updates/apply) is offered only
- * when a build would otherwise miss something: a newer Mod Matrix, or mods added, removed or
- * changed (list, RAM figures, requirements). Mods whose code alone changed need nothing: a
- * build fetches each mod as it is then. A newer app is a download, never automatic.
+/* CHECK FOR UPDATES (right of the tabs): the things the person has to act on. It asks the
+ * launcher what changed since the Mod Matrix started (/updates/check) and shows it in a panel.
+ * UPDATE NOW (/updates/apply) is offered when a build would otherwise miss something: a newer
+ * Mod Matrix, or mods added, removed or changed (list, RAM figures, requirements). A newer app
+ * is a download, never automatic. Mods whose code changed are not updates here: a build fetches
+ * each mod as it is then, and the WHAT'S NEW tab (news.js) lists those changes; the panel only
+ * points to it with one line.
  *
  * It also checks by itself, quietly: once the Mod Matrix has been running AUTO minutes, and
  * then each time the last check is AUTO minutes old (so hourly), while the window isn't
  * minimised; coming back to the window runs a check that is due straight away. Nothing
- * pops up: the button turns yellow (UPDATES AVAILABLE / UPDATES FOUND) and its tooltip says what
- * was found. It stays so until the person presses CLEAR in the panel (or UPDATE NOW): a check
- * that finds nothing doesn't clear it, and the launcher keeps it (/updates/state), so a page
- * reload doesn't lose it.
- * It also shows what arrived while the app was closed: changes to the mods the person hasn't
- * marked as seen (news.js, from WHAT'S NEW). They make the button UPDATES FOUND and get their
- * own section in the panel; CLEAR marks them as seen.
+ * pops up: the button turns yellow (UPDATES AVAILABLE) and its tooltip says what was found. It
+ * stays so until the person presses CLEAR in the panel (a new app) or UPDATE NOW: a check that
+ * finds nothing doesn't clear it, and the launcher keeps it (/updates/state), so a page reload
+ * doesn't lose it.
  * The quiet check costs GitHub a few small requests; the launcher reads the repos and asks
  * GitHub's API only when something is new (?quiet=1). */
 "use strict";
@@ -31,8 +30,6 @@
   let busy = false;
   let news = null;                          // what's new since the person last looked (news.js), or null
   const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
-  const newsLine = (i) => [...i.changed.map((c) => c.title), ...i.added.map((t) => `new: ${t}`),
-                           ...i.removed.map((t) => `removed: ${t}`)].join(", ");
 
   /* its tooltip (tips.js) says how long since the app got the latest */
   const ago = (t) => {
@@ -43,8 +40,7 @@
     return h < 48 ? `${h} h ${min % 60 ? (min % 60) + " min " : ""}ago` : `${Math.floor(h / 24)} days ago`;
   };
   btn.addEventListener("tipshow", () => {
-    $("check-found").textContent = [found ? `Found ${ago(found.at)}: ${summary(found.result)}.` : "",
-      news ? `Since you last looked (${sinceText(news.since)}): ${newsLine(news)}.` : ""].filter(Boolean).join(" ");
+    $("check-found").textContent = found && summary(found.result) ? `Found ${ago(found.at)}: ${summary(found.result)}.` : "";
     $("check-when").textContent = `Mod Matrix started ${ago(started)}` + (lastCheck ? ` \u00b7 last checked ${ago(lastCheck)}` : "");
   });
 
@@ -55,28 +51,24 @@
     if (r.added.length) parts.push(`new: ${r.added.map((m) => m.title).join(", ")}`);
     if (r.removed.length) parts.push(`removed: ${r.removed.map((m) => m.title).join(", ")}`);
     if (r.changed.length) parts.push(`changed: ${r.changed.map((m) => m.title).join(", ")}`);
-    if (r.code.length) parts.push(`new code (in your next build): ${r.code.map((m) => m.title).join(", ")}`);
-    if (r.unknown.length) parts.push("new code (in your next build)");
     if (r.app) parts.push(`new version of this app: ${r.app.version}`);
     return parts.join(" \u00b7 ");
   }
 
-  /* the button: solid yellow UPDATES AVAILABLE when an update needs the person (UPDATE NOW, or a
-   * new app not yet cleared); yellow outline UPDATES FOUND when only mods' code changed (in the
-   * next build). It stays until the person presses CLEAR (UPDATE NOW stays until done). Checks
+  /* the button: yellow UPDATES AVAILABLE when an update needs the person (UPDATE NOW, or a new
+   * app not yet cleared). A new app stays until CLEAR, UPDATE NOW's changes until done. Checks
    * compare with the Mod Matrix's start, so the same changes come back every time: once cleared,
    * only something new flags the button again. A check that finds nothing keeps the button as it
-   * is, unless the person ran it (full) and it reached everything */
+   * is, unless the person ran it (full) and it reached everything. What's new in the mods doesn't
+   * change the button: the WHAT'S NEW tab's count says that */
   const isNew = () => Boolean(found) && summary(found.result) !== seen;
   const needsAction = () => Boolean(found && (found.result.restart || (found.result.app && isNew())));
   function setButton(r, full) {
     if (r && summary(r)) found = { result: r, at: (found && summary(found.result) === summary(r)) ? found.at : Date.now() };
     else if (r && full && !r.failed.length) found = null;
     const act = needsAction();
-    const noted = !act && (isNew() || Boolean(news));
     btn.classList.toggle("found", act);
-    btn.classList.toggle("noted", noted);
-    btn.textContent = act ? "UPDATES AVAILABLE" : noted ? "UPDATES FOUND" : "CHECK FOR UPDATES";
+    btn.textContent = act ? "UPDATES AVAILABLE" : "CHECK FOR UPDATES";
   }
 
   const node = (tag, cls, text) => {
@@ -85,7 +77,6 @@
     if (text != null) n.textContent = text;
     return n;
   };
-  const names = (mods) => mods.map((m) => m.title).join(", ");
   const author = (m) => m.repo.split("/")[0];
 
   function open() {
@@ -100,7 +91,6 @@
   }
   function clear() {                        // CLEAR: the person has seen it (not UPDATE NOW's changes)
     close();
-    if (news) { news = null; whatsnew.markSeen(); setButton(); }
     if (!found || found.result.restart) return;
     seen = summary(found.result);
     setButton();
@@ -158,32 +148,28 @@
     } else if (me.version) {
       section("This app", [node("p", "muted", `Perkons Mod Matrix Desktop ${me.version}. Couldn't check for a newer version (see below).`)]);
     }
+    // the Mod Matrix: a newer one, or a different mod list (both need UPDATE NOW)
+    if (r.restart) {
+      const parts = [];
+      if (r.framework) parts.push(node("p", "", "kiteless has updated the Mod Matrix since the app started."), ...commits(r.framework));
+      const mods = [...r.added.map((m) => `New: ${m.title} (${author(m)})`),
+                    ...r.removed.map((m) => `No longer offered: ${m.title} (${author(m)})`),
+                    ...r.changed.map((m) => `${m.title}: new ${m.what.join(", ")}`)];
+      if (mods.length) parts.push(node("p", "", "The mods it offers have changed:"), list(mods));
+      section("Mod Matrix", parts);
+    } else if (!r.failed.length) {
+      section("Mod Matrix", [node("p", "ok", "Up to date.")]);
+    }
+    // the mods' changes: one line, the list is on WHAT'S NEW
     if (news) {
-      const items = [...news.changed.map((c) => `${c.title}: ${c.n} ${c.n === 1 ? "change" : "changes"}`),
-                     ...news.added.map((t) => `New: ${t}`), ...news.removed.map((t) => `No longer offered: ${t}`)];
-      const more = node("p", "muted", "If any of these are in the firmware on your Pērkons, build it again and install it to get them. ");
-      const see = node("a", "", "See what changed");
+      const n = news.count + news.added.length + news.removed.length;
+      const p = node("p", "news-line", `${n} ${n === 1 ? "change" : "changes"} to the mods since you last looked (${sinceText(news.since)}). `);
+      const see = node("a", "", "See What's New");
       see.href = "#";
       see.addEventListener("click", (e) => { e.preventDefault(); close(); showView("news"); });
-      more.append(see);
-      section(`Since you last looked (${sinceText(news.since)})`, [list(items), more]);
+      p.append(see);
+      section("Mods", [p]);
     }
-    if (r.framework) {
-      section("Mod Matrix", ["kiteless has updated the Mod Matrix since the app started.", ...commits(r.framework)]);
-    }
-    if (r.added.length) section("New mods", [list(r.added.map((m) => `${m.title} (${author(m)})`))]);
-    if (r.removed.length) section("Removed", [list(r.removed.map((m) => `${m.title} (${author(m)})`))]);
-    if (r.changed.length) {
-      section("Changed", [list(r.changed.map((m) => `${m.title}: ${m.what.join(", ")}`))]);
-    }
-    if (r.code.length) {
-      section("Updated code", [`${names(r.code)}. Your next build uses the new code already: nothing to do.`]);
-    }
-    if (r.unknown.length) {
-      section("Updated code", [node("p", "muted", `${r.unknown.join(", ")} changed (GitHub didn't say which mods). Your next build uses the new code already.`)]);
-    }
-    const nothing = !r.app && !r.restart && !r.code.length && !r.unknown.length && !news;
-    if (nothing) body.append(node("p", "ok", "Everything is up to date."));
     body.append(node("p", "remind", "New mods, engines and features are added all the time: if you keep the app " +
       "open, check again now and then (or restart the app)."));
     if (r.failed.length) {
@@ -195,7 +181,7 @@
         "you ticked are cleared: load your firmware again afterwards. Wait for a build in progress to finish first."));
       button("LATER", close);
       button("UPDATE NOW", apply, true).focus();
-    } else if (summary(r) || news) {
+    } else if (r.app) {
       button("CLEAR", clear).focus();
     } else {
       button("CLOSE", close).focus();

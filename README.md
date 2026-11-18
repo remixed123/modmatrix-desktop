@@ -111,27 +111,29 @@ engines are updated and as we learn more, so trust your ears.
 New mods, engines and features are added all the time. The app gets the newest Mod Matrix
 and mod list each time it starts; if you keep it open, check for updates regularly: press
 **CHECK FOR UPDATES** (top right; hold the pointer over it to see how long ago the Mod Matrix
-started and when you last checked) to see what has changed since:
+started and when you last checked) to see what needs updating:
 
-* **Mod Matrix**, or **new**, **removed** or **changed** mods (RAM figures, requirements): press
-  **UPDATE NOW** to start the Mod Matrix again with them, without quitting the app. The
-  firmware you loaded and the mods you ticked are cleared, so load your firmware again
-  afterwards. Wait for a build in progress to finish first. **LATER** leaves things as they are.
-* **Updated code** in a mod you can already pick: nothing to do, the next build uses it.
 * **This app**: always shows the version you have; when a newer one is out, a button downloads
   it for your computer (Mac or Windows), with a link to what's new.
+* **Mod Matrix**: a newer one, or **new**, **removed** or **changed** mods (RAM figures,
+  requirements): press **UPDATE NOW** to start the Mod Matrix again with them, without quitting
+  the app. The firmware you loaded and the mods you ticked are cleared, so load your firmware
+  again afterwards. Wait for a build in progress to finish first. **LATER** leaves things as
+  they are.
 
 While the app stays open it also checks by itself, about once an hour while its window isn't
-minimised. Nothing pops up; the button turns yellow instead, and stays yellow until you deal
-with it:
+minimised. Nothing pops up; the button turns yellow, **UPDATES AVAILABLE**, instead. An update
+for the Mod Matrix stays until you press UPDATE NOW; a new app version clears with CLEAR. Hold
+the pointer over the button to see what was found; click it for the details.
 
-* **UPDATES AVAILABLE** (solid yellow): something to update (UPDATE NOW) or a new version of
-  the app to download. An update for the Mod Matrix stays until you press UPDATE NOW; a new
-  app version clears with CLEAR.
-* **UPDATES FOUND** (yellow outline): only mods' code changed; your next build uses it.
-  Click it and CLEAR: the button clears until something new is found.
+### What's New
 
-Hold the pointer over the button to see what was found; click it for the details.
+Changes to the mods themselves (new sounds, fixes) aren't updates to the app: your next build
+uses them. The **WHAT'S NEW** tab lists every mod's recent changes and marks the ones that
+arrived since you last looked, even while the app was closed; the number on the tab says how
+many. If a mod in the firmware on your Pērkons has changed, build again and install it to get
+the change. **MARK ALL AS SEEN** when you're done. The CHECK FOR UPDATES panel points to the
+tab when there's something new.
 
 ## Help
 

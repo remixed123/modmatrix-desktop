@@ -1,8 +1,8 @@
 /* WHAT'S NEW tab: the recent changes of the Mod Matrix (perkons-re) and every mod, from the
  * launcher's /news (GitHub's change feed of each mod's folder, kept for offline use). Changes the
- * person hasn't marked as seen are NEW; MARK ALL AS SEEN (or CLEAR in the updates panel) marks
- * them (/news/seen). It tells the rest of the page what's new with a "pmm-news" event: the tab's
- * count and the updates button (updates.js) follow it. */
+ * person hasn't marked as seen are NEW; MARK ALL AS SEEN marks them (/news/seen). This tab is the
+ * one place for the mods' changes: it tells the rest of the page with a "pmm-news" event, for the
+ * tab's count and one line in the updates panel (updates.js). */
 "use strict";
 
 const whatsnew = (() => {
@@ -24,7 +24,7 @@ const whatsnew = (() => {
   };
   const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
 
-  /* what's new, in short: for the tab's count, the updates button and the summary box */
+  /* what's new, in short: for the tab's count, the updates panel's line and the summary box */
   function info() {
     if (!data) return null;
     const changed = [], added = [];

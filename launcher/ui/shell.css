@@ -28,7 +28,6 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 #check:hover, #check[aria-expanded="true"] { border-color: var(--white); background: rgba(0, 0, 0, .15); }
 #check.busy { cursor: progress; }
 #check.found { color: var(--blue); background: var(--yellow); border-color: var(--yellow); }
-#check.noted { color: var(--yellow); border-color: var(--yellow); background: rgba(0, 0, 0, .2); }
 .tip { position: fixed; z-index: 21; top: 50px; width: min(340px, calc(100vw - 24px));
   padding: 10px 12px; background: var(--black); color: var(--text); border: 2px solid var(--lightblue);
   border-radius: 5px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); font-size: 13px; line-height: 1.45;

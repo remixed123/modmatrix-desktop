@@ -1,4 +1,4 @@
-<!-- pmm:page format=1 updated=2026-11-17 -->
+<!-- pmm:page format=1 updated=2026-11-18 -->
 
 <!-- For writers: every entry needs a known source (a mod's README, the Mod Matrix's docs, this
      app's README, or something tested). Leave out anything unconfirmed until it is. Problems in
@@ -34,7 +34,7 @@ Your Pērkons only changes when you install new firmware. When a mod you use is 
 your firmware again in the Mod Matrix and install it to get the update.
 
 The [What's New](#view-news) tab shows every mod's recent changes, and marks the ones that
-arrived since you last looked. CHECK FOR UPDATES (top right) shows them too.
+arrived since you last looked. The number on the tab says how many.
 
 ## The app can't connect <!-- toc: Offline -->
 

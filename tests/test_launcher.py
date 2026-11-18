@@ -603,7 +603,6 @@ class UpdatesWeb:
     """GitHub for the update check: branch commits, compares, the Mod Matrix's list."""
     def __init__(self):
         self.heads = {L.FRAMEWORK_REPO: SHA1, K: SHA1, R: SHA1}
-        self.files = {}
         self.compare_refused = False
 
     def __call__(self, url, accept=None, timeout=None):
@@ -615,8 +614,7 @@ class UpdatesWeb:
             if url.startswith(f'https://api.github.com/repos/{repo}/compare/'):
                 if self.compare_refused:
                     raise urllib.error.HTTPError(url, 403, 'rate limit exceeded', {}, None)
-                return json.dumps({'commits': [{'commit': {'message': 'First\n\nmore'}}, {'commit': {'message': 'Second'}}],
-                                   'files': [{'filename': f} for f in self.files.get(repo, [])]}).encode()
+                return json.dumps({'commits': [{'commit': {'message': 'First\n\nmore'}}, {'commit': {'message': 'Second'}}]}).encode()
         raise OSError(f'404 {url}')
 
 
@@ -656,16 +654,20 @@ class TestUpdates(unittest.TestCase):
         r = self.up.check()
         self.assertEqual((r['removed'], r['restart'], r['failed']), ([], False, [[K, 'down']]))
 
-    def test_code_changes_need_nothing(self):
-        self.web.heads[R] = SHA2
-        self.web.files[R] = ['voice-kick-lab/src/m7/kick_lab.c', 'README.md']
+    def test_code_changes_are_not_updates(self):
+        self.web.heads[R] = SHA2                                 # WHAT'S NEW lists them instead
         r = self.up.check()
-        self.assertEqual(([m['title'] for m in r['code']], r['restart']), (['Kick Lab'], False))
+        self.assertEqual((r['restart'], self.up.found_anything(r)), (False, False))
+        self.assertEqual(self.up.state(), {})
+
+    def test_the_mod_matrix_compare_is_asked_once(self):
+        self.web.heads[L.FRAMEWORK_REPO] = SHA2
+        self.up.check()
         self.web.compare_refused = True
-        self.assertEqual([m['title'] for m in self.up.check()['code']], ['Kick Lab'])    # asked once, kept
+        self.assertEqual(self.up.check()['framework']['commits'], ['Second', 'First'])   # kept
         self.up.compares.clear()
         r = self.up.check()
-        self.assertEqual((r['code'], r['unknown']), ([], [R]))
+        self.assertEqual((r['framework']['commits'], r['restart']), ([], True))
 
     def test_quiet_check_reuses_the_last_result_while_github_has_nothing_new(self):
         calls = []
@@ -677,34 +679,37 @@ class TestUpdates(unittest.TestCase):
         self.up.check()                                          # the button: always read again
         self.assertEqual(len(calls), 2)
         self.web.heads[R] = SHA2                                 # something new: read again
-        self.web.files[R] = ['voice-akords/x.c']
-        self.assertEqual([m['title'] for m in self.up.check(quiet=True)['code']], ['Akords'])
+        self.up.check(quiet=True)
         self.assertEqual(len(calls), 3)
 
     def test_the_button_stays_until_cleared(self):
+        newer = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v99.0.0'
+        same = L.REDIRECT
         self.assertEqual(self.up.state(), {})
-        self.web.heads[R] = SHA2
-        self.web.files[R] = ['voice-akords/x.c']
+        L.REDIRECT = newer
         self.up.check(quiet=True)
         at = self.up.state()['at']
-        self.assertEqual([m['title'] for m in self.up.state()['result']['code']], ['Akords'])
+        self.assertEqual(self.up.state()['result']['app']['version'], '99.0.0')
         del self.web.heads[R]                                    # GitHub unreachable: kept
         self.assertTrue(self.up.check(quiet=True)['failed'])
-        self.assertEqual(self.up.check()['code'], [])
-        self.assertEqual(self.up.state()['at'], at)
-        self.web.heads[R] = SHA1                                 # nothing new any more: kept, unless the
+        self.assertTrue(self.up.check()['failed'])
+        self.assertEqual(self.up.state()['result']['app']['version'], '99.0.0')
+        self.web.heads[R] = SHA1
+        self.up.check(quiet=True)
+        at = self.up.state()['at']
+        L.REDIRECT = same                                        # nothing new any more: kept, unless the
         self.assertFalse(self.up.found_anything(self.up.check(quiet=True)))     # person looks (full check)
         self.assertEqual(self.up.state()['at'], at)
-        self.web.heads[R] = SHA2
+        L.REDIRECT = newer
         self.up.check(quiet=True)
-        self.up.clear('Akords')
-        self.assertEqual(self.up.state()['cleared'], 'Akords')   # the page compares it with what it shows
+        self.up.clear('99')
+        self.assertEqual(self.up.state()['cleared'], '99')       # the page compares it with what it shows
         self.up.check(quiet=True)
-        self.assertEqual(self.up.state()['cleared'], 'Akords')
-        self.web.heads[R] = SHA1
+        self.assertEqual(self.up.state()['cleared'], '99')
+        L.REDIRECT = same
         self.up.check()
         self.assertEqual(self.up.state(), {})
-        self.web.heads[R] = SHA2
+        L.REDIRECT = newer
         self.up.check()
         self.up.apply()                                          # UPDATE NOW: a new start, nothing found yet
         self.assertEqual(self.up.state(), {})
