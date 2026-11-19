@@ -1,4 +1,4 @@
-<!-- pmm:page format=1 updated=2026-11-18 -->
+<!-- pmm:page format=1 updated=2026-11-19 -->
 
 <!-- For writers: every entry needs a known source (a mod's README, the Mod Matrix's docs, this
      app's README, or something tested). Leave out anything unconfirmed until it is. Problems in
@@ -35,6 +35,16 @@ your firmware again in the Mod Matrix and install it to get the update.
 
 The [What's New](#view-news) tab shows every mod's recent changes, and marks the ones that
 arrived since you last looked. The number on the tab says how many.
+
+## Long hang at start-up <!-- toc: Start-up hang -->
+
+The Pērkons hangs for over a minute at every start, with rows 1 to 3 and the first 4 lights of
+row 4 lit. It looks like the install failed, but it hasn't: your firmware and bootloader are
+fine.
+
+- **The cause**: a `Samples` folder at the top of the SD card with more than 3 samples in it, and
+  firmware built without Step Sampler.
+- **The fix**: rename or remove the `Samples` folder, or include Step Sampler in your build.
 
 ## The app can't connect <!-- toc: Offline -->
 
