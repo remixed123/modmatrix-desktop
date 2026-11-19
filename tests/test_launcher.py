@@ -347,7 +347,10 @@ class TestPage(unittest.TestCase):
 
     def fetch(self, url, accept=None, timeout=None):
         self.urls.append(url)
-        if url.split('?')[0] == L.CONTENT_URL.format(name='processor.md') and self.text is not None:
+        if url == L.GIT_REFS_URL.format(repo=L.APP_REPO):
+            return f'003d{SHA2} refs/heads/main\n0000'.encode()
+        if url in (L.CONTENT_URL.format(name='processor.md'), L.CONTENT_AT_URL.format(sha=SHA2, name='processor.md')) \
+                and self.text is not None:
             return self.text.encode()
         raise OSError('network down')
 
@@ -379,8 +382,9 @@ class TestPage(unittest.TestCase):
         self.text = '<!-- pmm:page format=1 updated=2099-01-01 -->\n# New\n'
         self.p.get()
         self.p.get(fresh=True)
-        self.assertEqual(self.urls[0], L.CONTENT_URL.format(name='processor.md'))
-        self.assertRegex(self.urls[1], r'processor\.md\?t=\d+$')
+        self.assertEqual(self.urls, [L.CONTENT_URL.format(name='processor.md'),
+                                     L.GIT_REFS_URL.format(repo=L.APP_REPO),
+                                     L.CONTENT_AT_URL.format(sha=SHA2, name='processor.md')])
 
     def test_unreadable_pages_are_ignored(self):
         for bad in ['# no header\n', '<!-- pmm:page format=99 updated=2099-01-01 -->\n# x\n']:

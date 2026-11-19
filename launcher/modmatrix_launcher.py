@@ -825,6 +825,7 @@ class Guides:
 # layout newer than it knows and keeps its saved copy.
 
 CONTENT_URL = f'https://raw.githubusercontent.com/{APP_REPO}/main/content/' + '{name}'
+CONTENT_AT_URL = f'https://raw.githubusercontent.com/{APP_REPO}/' + '{sha}/content/{name}'   # REFRESH: one commit's copy
 PROCESSOR_FORMAT = 1         # the newest processor.json layout this app can read
 PAGE_FORMAT = 1              # the newest processor.md layout (markers, callouts, classes) this app can read
 PAGE_HEAD = re.compile(r'﻿?<!--\s*pmm:page\s+format=(\d+)\s+updated=(\d{4}-\d{2}-\d{2})\s*-->')
@@ -876,10 +877,14 @@ class Content:
 
     def get(self, fresh=False):
         """{'data': the file (object or text), 'source': 'online' | 'saved' | 'app'}. fresh
-        (REFRESH): past GitHub's cache of the file (up to 5 minutes old otherwise)."""
+        (REFRESH): the file at the commit main is at now, past GitHub's cache of main's copy
+        (up to 5 minutes old; a query string doesn't get past it)."""
         url = CONTENT_URL.format(name=self.name)
         if fresh:
-            url += f'?t={int(time.time())}'
+            try:
+                url = CONTENT_AT_URL.format(sha=ref_commit(APP_REPO, 'main'), name=self.name)
+            except Exception as e:
+                self.log(f'{self.name}: the latest commit: {e}')
         try:
             raw = FETCH(url, timeout=README_TIMEOUT)
             value, _ = self.parse(raw)
