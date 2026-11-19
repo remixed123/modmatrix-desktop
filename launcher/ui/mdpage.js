@@ -164,5 +164,18 @@ const mdpage = (() => {
     if (print) print.addEventListener("click", () => window.print());
   }
 
-  return { render, bind, getJson, forCopy, copyAll };
+  /* a page's REFRESH: gets the page again from GitHub (past its cache), and says when it's done
+   * (the page may look the same: nothing changed) */
+  function refreshButton(btn, load) {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "REFRESHING...";
+      try { await load(); } finally {
+        btn.textContent = "REFRESHED";
+        setTimeout(() => { btn.textContent = "REFRESH"; btn.disabled = false; }, 1500);
+      }
+    });
+  }
+
+  return { render, bind, getJson, forCopy, copyAll, refreshButton };
 })();

@@ -1,4 +1,4 @@
-<!-- pmm:page format=1 updated=2026-11-17 -->
+<!-- pmm:page format=1 updated=2026-11-19 -->
 
 # Processor and memory
 
@@ -121,7 +121,8 @@ Akords, Synth Lab, Kick Lab with its effects on, Step Sampler on granular.
 - Avoid two heavy engines on voices 1 and 2 together, Akords especially.
 - Four heavy engines at once is too much wherever they are. The planner below shows how much a kit
   takes.
-- An engine costs nothing while it isn't chosen on a voice, so a build can include all of them.
+- An engine uses no processor while it isn't chosen on a voice, but it still takes memory: a build
+  can include as many as the memory allows (the Mod Matrix shows it).
 
 ## How much processor each engine uses <!-- toc: Engine table -->
 

@@ -874,10 +874,14 @@ class Content:
         except (OSError, ValueError):
             return None
 
-    def get(self):
-        """{'data': the file (object or text), 'source': 'online' | 'saved' | 'app'}"""
+    def get(self, fresh=False):
+        """{'data': the file (object or text), 'source': 'online' | 'saved' | 'app'}. fresh
+        (REFRESH): past GitHub's cache of the file (up to 5 minutes old otherwise)."""
+        url = CONTENT_URL.format(name=self.name)
+        if fresh:
+            url += f'?t={int(time.time())}'
         try:
-            raw = FETCH(CONTENT_URL.format(name=self.name), timeout=README_TIMEOUT)
+            raw = FETCH(url, timeout=README_TIMEOUT)
             value, _ = self.parse(raw)
         except Exception as e:
             self.log(f'{self.name}: {e}')
@@ -1132,12 +1136,13 @@ class Shell:
                         return self.send_json(shell.updates.check(quiet=q.get('quiet') == ['1']))
                     if url.path == '/updates/state' and shell.updates:
                         return self.send_json(shell.updates.state())
+                    fresh = q.get('fresh') == ['1']
                     if url.path == '/limits/data':
-                        return self.send_json(shell.processor.get())
+                        return self.send_json(shell.processor.get(fresh))
                     if url.path == '/limits/page':
-                        return self.send_json(shell.processor_page.get())
+                        return self.send_json(shell.processor_page.get(fresh))
                     if url.path.startswith('/content/') and url.path[len('/content/'):] in shell.pages:
-                        return self.send_json(shell.pages[url.path[len('/content/'):]].get())
+                        return self.send_json(shell.pages[url.path[len('/content/'):]].get(fresh))
                     if url.path == '/news':
                         return self.send_json(shell.news.get(fresh=q.get('fresh') == ['1']))
                     if url.path == '/guides/readme':

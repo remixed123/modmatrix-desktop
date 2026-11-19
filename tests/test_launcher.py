@@ -339,14 +339,15 @@ class TestPage(unittest.TestCase):
 
     def setUp(self):
         self.data = tempfile.mkdtemp()
-        self.text = None
+        self.text, self.urls = None, []
         self.saved, L.FETCH = L.FETCH, self.fetch
         self.p = L.Content(self.data, lambda msg: None, 'processor.md', L.parse_page)
         with open(os.path.join(L.content_dir(), 'processor.md'), encoding='utf-8') as f:
             self.own = f.read()
 
     def fetch(self, url, accept=None, timeout=None):
-        if url == L.CONTENT_URL.format(name='processor.md') and self.text is not None:
+        self.urls.append(url)
+        if url.split('?')[0] == L.CONTENT_URL.format(name='processor.md') and self.text is not None:
             return self.text.encode()
         raise OSError('network down')
 
@@ -373,6 +374,13 @@ class TestPage(unittest.TestCase):
         self.assertEqual(self.p.get(), {'data': self.text, 'source': 'online'})
         new, self.text = self.text, None
         self.assertEqual(self.p.get(), {'data': new, 'source': 'saved'})
+
+    def test_refresh_asks_past_githubs_cache(self):
+        self.text = '<!-- pmm:page format=1 updated=2099-01-01 -->\n# New\n'
+        self.p.get()
+        self.p.get(fresh=True)
+        self.assertEqual(self.urls[0], L.CONTENT_URL.format(name='processor.md'))
+        self.assertRegex(self.urls[1], r'processor\.md\?t=\d+$')
 
     def test_unreadable_pages_are_ignored(self):
         for bad in ['# no header\n', '<!-- pmm:page format=99 updated=2099-01-01 -->\n# x\n']:

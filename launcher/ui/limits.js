@@ -243,9 +243,10 @@ const limits = (() => {
 
   /* -- loading ---------------------------------------------------------------------------------- */
 
-  async function load() {
+  async function load(fresh = false) {
     loadedAt = Date.now();
-    const [page, nums] = await Promise.allSettled([mdpage.getJson("/limits/page"), mdpage.getJson("/limits/data")]);
+    const q = fresh ? "?fresh=1" : "";
+    const [page, nums] = await Promise.allSettled([mdpage.getJson("/limits/page" + q), mdpage.getJson("/limits/data" + q)]);
     if (page.status === "fulfilled") {
       if (page.value.data !== pageText) {
         mdpage.render(page.value.data, { target: $("limits-page"), holder: $("limits-parts"), prefix: "l-" });
@@ -274,6 +275,7 @@ const limits = (() => {
   }
 
   load();
+  mdpage.refreshButton($("limits-refresh"), () => load(true));
   mdpage.bind($("limits"), (a) => (a.dataset.part === "plan-button" ? planTarget() : null));
   return {
     shown() { if (Date.now() - loadedAt > 15 * 60 * 1000) load(); },   // newer numbers while the app stays open
