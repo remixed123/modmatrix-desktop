@@ -547,7 +547,11 @@ class TestShell(unittest.TestCase):
 
     def test_guides_api(self):
         status, body = self.get('/guides/mods')
-        self.assertEqual((status, len(json.loads(body)['mods'])), (200, 3))
+        mods = json.loads(body)['mods']
+        self.assertEqual((status, len(mods)), (200, 5))
+        self.assertEqual([(m['kind'], m['repo'], m['readme']) for m in mods[:2]],
+                         [('matrix', L.FRAMEWORK_REPO, 'README.md'), ('matrix', L.FRAMEWORK_REPO, 'docs/voice-map.md')])
+        self.assertTrue(all(m['kind'] != 'matrix' for m in mods[2:]))
         status, body = self.get('/guides/readme?repo=remixed123/perkons-re-mods&ref=main&path=voice-akords/README.md')
         self.assertEqual((status, json.loads(body)['text']), (200, '# Akords\n'))
         self.assertEqual(self.get('/guides/readme?repo=a/b&ref=main&path=../x.md')[0], 400)

@@ -133,6 +133,7 @@ body { display: flex; flex-direction: column; background: var(--purple); color: 
 .kind { flex: none; font: 600 9px/1 var(--mono); letter-spacing: .08em; padding: 3px 4px; border-radius: 3px;
   color: var(--blue); background: var(--cyan); }
 .kind.engine { background: var(--yellow); }
+.kind.matrix { background: var(--cyan); }
 .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   margin-top: 1px; font-size: 12px; line-height: 1.35; }
 .from { flex: none; font: 10px/1 var(--mono); color: var(--lightgrey); }

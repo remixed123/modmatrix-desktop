@@ -64,7 +64,10 @@ You need the official Pērkons firmware **1.3.0** from Erica Synths
 ## User guides
 
 Every mod and engine has a user guide: what it does, its controls and how to use it on the
-Pērkons. Read them in the app, before or after building, with no firmware loaded.
+Pērkons. Read them in the app, before or after building, with no firmware loaded. At the top
+of the list, two **MOD MATRIX** guides from kiteless's perkons-re: **Build and flash** (build
+your firmware, install it, go back to the official one) and **Voice map** (choosing an engine
+for each voice, in every build).
 
 1. Click the **USER GUIDES** tab at the top of the window. **MOD MATRIX** takes you back to
    building; whatever you had loaded or ticked there stays as it was.
@@ -72,7 +75,7 @@ Pērkons. Read them in the app, before or after building, with no firmware loade
    from every repo, A to Z, with each one's author and whether it's a **MOD** or an
    **ENGINE**.
 3. Narrow the list with the search box (name, description or author; Enter opens the first
-   match, Esc clears it), or show only **MODS** or **ENGINES**.
+   match, Esc clears it), or show only the **MOD MATRIX** guides, **MODS** or **ENGINES**.
 
 Links within a guide jump to its sections, and links to another mod open that mod's guide.
 Other links open in your web browser; **View on GitHub** shows the guide in its repo.

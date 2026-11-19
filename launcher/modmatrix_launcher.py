@@ -751,6 +751,21 @@ def _safe_rel(path):
     return bool(path) and all(p and p not in ('.', '..') and not p.startswith('.') for p in parts)
 
 
+# The MOD MATRIX guides: kiteless's own user docs in perkons-re, read live like the mods' READMEs.
+# section: the part of the file the app shows (the page, guides.js, cuts it; all of it if the
+# headings have changed): README's "Get modded firmware", without steps 0-3 (the app does them).
+MATRIX_GUIDES = [
+    {'id': 'mod-matrix-build', 'title': 'Build and flash',
+     'summary': 'Load the official firmware, choose mods and engines, build, and install it on your Pērkons. '
+                'Going back to the official firmware.',
+     'readme': 'README.md',
+     'section': {'heading': 'Get modded firmware', 'skip': r'^[0-3]\.\s'}},
+    {'id': 'mod-matrix-voice-map', 'title': 'Voice map',
+     'summary': 'In every build: choose any engine on any voice, per kit, on the engine page (KIT + MOD).',
+     'readme': 'docs/voice-map.md'},
+]
+
+
 class Guides:
     def __init__(self, data, matrix_url, log, fresh=None):
         self.root = os.path.join(data, 'guides')
@@ -787,6 +802,12 @@ class Guides:
                         'readme': path})
         out.sort(key=lambda m: (m['title'].casefold(), m['id']))
         return out
+
+    def listing(self, fresh=False):
+        """The USER GUIDES list: the MOD MATRIX guides first, then every mod (mods())."""
+        own = [{**g, 'kind': 'matrix', 'repo': FRAMEWORK_REPO, 'ref': FRAMEWORK_REF, 'dir': None,
+                'author': FRAMEWORK_REPO.split('/')[0]} for g in MATRIX_GUIDES]
+        return own + self.mods(fresh)
 
     def cache_path(self, repo, ref, path):
         owner, name = repo.split('/')
@@ -1136,7 +1157,7 @@ class Shell:
                     if url.path == '/':
                         return self.send(HTTPStatus.OK, shell.index(), UI_TYPES['.html'])
                     if url.path == '/guides/mods':
-                        return self.send_json({'mods': shell.guides.mods(fresh=q.get('fresh') == ['1'])})
+                        return self.send_json({'mods': shell.guides.listing(fresh=q.get('fresh') == ['1'])})
                     if url.path == '/updates/check' and shell.updates:
                         return self.send_json(shell.updates.check(quiet=q.get('quiet') == ['1']))
                     if url.path == '/updates/state' and shell.updates:

@@ -1,5 +1,6 @@
 /* The app's page: MOD MATRIX / USER GUIDES / PROCESSOR & MEMORY tabs, and the user guides (each mod's README).
- * The mod list comes from the launcher (/guides/mods: the Mod Matrix's mods, all repos, A-Z);
+ * The list comes from the launcher (/guides/mods: the MOD MATRIX guides, kiteless's own docs in
+ * perkons-re, then the Mod Matrix's mods, all repos, A-Z);
  * each README from /guides/readme (GitHub, or the copy from last time when offline). README
  * HTML is cleaned with DOMPurify: the READMEs come from other people's repos. */
 "use strict";
@@ -109,7 +110,7 @@ function renderList() {
       from.title = `from ${m.repo}`;
       head.append(from);
     }
-    head.append(el("span", `kind ${m.kind}`, m.kind === "engine" ? "ENGINE" : "MOD"));
+    head.append(el("span", `kind ${m.kind}`, KIND_LABEL[m.kind] || "MOD"));
     b.title = m.title;
     b.append(head);
     if (m.summary) b.append(el("div", "summary", m.summary));
@@ -119,7 +120,7 @@ function renderList() {
     ul.append(li);
   }
   if (!shown.length && state.mods.length) {
-    const what = state.kind === "engine" ? "engines" : "mods";
+    const what = KIND_PLURAL[state.kind] || "mods";
     const li = el("li", "note", words.length ? `No ${what} match "${state.query.trim()}".` : `No ${what} in these repos.`);
     ul.append(li);
   }
@@ -143,6 +144,33 @@ function el(tag, cls, text) {
 
 const ghPage = (m, path) => `https://github.com/${m.repo}/blob/${m.ref}/${path}`;
 const ghRaw = (m, path) => `https://raw.githubusercontent.com/${m.repo}/${m.ref}/${path}`;
+const KIND_LABEL = { engine: "ENGINE", matrix: "MOD MATRIX", mod: "MOD" };
+const KIND_PLURAL = { engine: "engines", matrix: "Mod Matrix guides", mod: "mods" };
+
+/* A MOD MATRIX guide that is part of a file (m.section): the section under the heading, without
+ * its subsections whose heading matches skip. All of it if the heading isn't there (changed). */
+function cut(text, sec) {
+  if (!sec) return text;
+  const skip = sec.skip ? new RegExp(sec.skip) : null;
+  let fence = false, level = 0, skipping = 0, found = false;
+  const out = [];
+  for (const line of text.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) fence = !fence;
+    const h = !fence && /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (h) {
+      const n = h[1].length;
+      if (!level) {
+        if (h[2] === sec.heading) { level = n; found = true; }
+      } else if (n <= level) {
+        break;
+      } else if (!skipping || n <= skipping) {
+        skipping = skip && skip.test(h[2]) ? n : 0;
+      }
+    }
+    if (level && !skipping) out.push(line);
+  }
+  return found ? out.join("\n") : text;
+}
 
 async function openMod(m, anchor = null, focus = true, keepScroll = false) {
   state.current = m;
@@ -179,7 +207,7 @@ async function openMod(m, anchor = null, focus = true, keepScroll = false) {
   const { text, cached } = state.docs.get(m.id);
   const parts = [bar(m, true)];
   if (cached) parts.push(el("p", "offline", "Offline: this is the copy from your last visit."));
-  parts.push(render(m, text));
+  parts.push(render(m, cut(text, m.section)));
   doc.replaceChildren(...parts);
   const target = anchor && doc.querySelector(`[id="${CSS.escape("g-" + anchor)}"]`);
   if (target) target.scrollIntoView();
@@ -491,5 +519,5 @@ $("search").addEventListener("keydown", (e) => {
   if (e.key === "Escape" && e.target.value) { e.target.value = ""; state.query = ""; renderList(); e.stopPropagation(); }
   if (e.key === "Enter") { const first = $("list").querySelector("button[data-id]"); if (first) first.click(); }
 });
-if (["mod", "engine"].includes(store.get("kind"))) setKind(store.get("kind"));
+if (["mod", "engine", "matrix"].includes(store.get("kind"))) setKind(store.get("kind"));
 loadMods();                                             // in the background: ready when the tab is opened
