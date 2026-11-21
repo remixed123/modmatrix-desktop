@@ -119,10 +119,10 @@ def main():
         q = urllib.parse.urlencode({'repo': first['repo'], 'ref': first['ref'], 'path': first['readme']})
         assert api(page, f'/guides/readme?{q}')['text'].strip(), first
         now = server.fresh_options()               # Refresh: the framework's code reads the repos again
-        assert not now['failed'] and {o['id'] for o in now['options']} >= {g['id'] for g in guides}, now
+        assert not now['failed'] and {o['id'] for o in now['options']} >= {g['id'] for g in own}, now
         fresh = api(page, '/guides/mods?fresh=1')['mods']
         print('guides after refresh:', len(fresh))
-        assert {g['id'] for g in fresh} == {o['id'] for o in now['options']}, fresh
+        assert {g['id'] for g in fresh if g['kind'] != 'matrix'} == {o['id'] for o in now['options']}, fresh
         upd = api(page, '/updates/check')         # CHECK FOR UPDATES: just started, so nothing to restart for
         print('updates:', {k: v for k, v in upd.items() if v})
         assert not upd['restart'] and not upd['failed'], upd

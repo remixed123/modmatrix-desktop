@@ -323,6 +323,8 @@ class Frameworks:
             shutil.rmtree(tmp, ignore_errors=True)
             raise LaunchError('the perkons-re download has no tools/modmatrix.py')
         os.replace(tmp, dest)
+        now = time.time_ns()             # its time, to the nanosecond: prune keeps the newest (Linux
+        os.utime(dest, ns=(now, now))    # file times can tick in 4 ms steps, too coarse to tell apart)
         return dest
 
     def set_current(self, sha):
