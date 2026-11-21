@@ -1296,6 +1296,8 @@ class News:
         self.lock = threading.Lock()
         self.last = None              # (time, result)
         self.frameworks = None        # the Frameworks in use (Shell.set_framework), None for a folder
+        self.at_lock = threading.Lock()   # at.json: the built feeds are read in parallel
+        self.build_lock = threading.Lock()
 
     # -- the build: what's on the person's Pērkons, as far as the app can know -------------------
 
@@ -1315,6 +1317,10 @@ class News:
         """The newest build the Mod Matrix recorded (the last one known, when it can't say: not
         running, or a perkons-re from before /api/builds), with the perkons-re it was made with;
         or None."""
+        with self.build_lock:
+            return self._build()
+
+    def _build(self):
         known = self._read('build.json', None)
         try:
             builds = json.loads(FETCH(self.guides.matrix_url + 'api/builds', timeout=BUILDS_TIMEOUT))['builds']
@@ -1343,14 +1349,18 @@ class News:
 
     def _at(self, url):
         """A feed at a fixed commit: its commits (kept: it never changes), or None."""
-        kept = self._read('at.json', {})
-        if url not in kept:
-            changes = self._fetch({'key': url, 'url': url})
-            if changes is None:
-                return None
+        with self.at_lock:
+            kept = self._read('at.json', {})
+        if url in kept:
+            return set(kept[url])
+        changes = self._fetch({'key': url, 'url': url})
+        if changes is None:
+            return None
+        with self.at_lock:
+            kept = self._read('at.json', {})
             kept[url] = [c['sha'] for c in changes]
             self._write('at.json', dict(list(kept.items())[-200:]))
-        return set(kept[url])
+        return {c['sha'] for c in changes}
 
     def _built(self, feeds, build):
         """Each feed's commits at the build ({key: set}); a feed not in the build, or whose
@@ -1602,6 +1612,8 @@ class Shell:
                         return self.send_json(shell.developer.choices())
                     if url.path == '/news':
                         return self.send_json(shell.news.get(fresh=q.get('fresh') == ['1']))
+                    if url.path == '/news/build':           # the page asks often: has a build been made?
+                        return self.send_json({'when': (shell.news.build() or {}).get('when')})
                     if url.path == '/guides/readme':
                         arg = lambda k: q.get(k, [''])[0]
                         text, cached = shell.guides.readme(arg('repo'), arg('ref'), arg('path'))

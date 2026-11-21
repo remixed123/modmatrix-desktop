@@ -546,6 +546,8 @@ class TestNewsSinceTheBuild(unittest.TestCase):
         self.assertEqual(new, {'Mod Matrix (perkons-re)': ['f200000'], 'Akords': ['a200000'], 'Kick Lab': []},
                          'Kick Lab is not in the build')
         self.assertEqual(r['build']['mods'], ['AKORDS'])
+        with open(os.path.join(self.data, 'news', 'at.json')) as f:
+            self.assertEqual(len(json.load(f)), 2, 'both built feeds kept (read in parallel)')
         self.news.mark_seen()
         self.assertEqual(self.new()[0]['Akords'], [], 'marked as seen after the build')
 

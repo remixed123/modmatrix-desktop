@@ -199,6 +199,27 @@ const whatsnew = (() => {
   $("news-seen").addEventListener("click", markSeen);
   load();                                                // in the background: the tab's count and the button
 
+  /* a build downloaded in the Mod Matrix: what's new changes at once ("since your build"), so ask
+   * the launcher every few seconds (a local question; GitHub is only read when there is a new build).
+   * One question at a time, and none while the window is hidden: asked again as soon as it's back. */
+  let timer = null, asking = false;
+  async function checkBuild() {
+    clearTimeout(timer);
+    timer = null;
+    if (document.hidden || asking) return;
+    asking = true;
+    try {
+      if (data && !busy) {
+        const b = await mdpage.getJson("/news/build");
+        if ((b.when || null) !== (data.build_when || null)) await load();
+      }
+    } catch { /* the launcher is busy or restarting: next time */ }
+    asking = false;
+    if (!document.hidden) timer = setTimeout(checkBuild, 5000);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkBuild(); });
+  checkBuild();
+
   return {
     load, markSeen, info, sinceWhat,
     shown() { if (Date.now() - loadedAt > 10 * 60 * 1000) load(); },
