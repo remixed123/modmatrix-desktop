@@ -113,7 +113,7 @@ jobs:
           PID=$!
           for i in $(seq 1 300); do grep -q ' is at http' "$RUNNER_TEMP/app.out" && break; sleep 1; done
           cat "$RUNNER_TEMP/app.out"
-          PAGE=$(grep -o 'http://127.0.0.1:[0-9]*/' "$RUNNER_TEMP/app.out" | head -1)
+          PAGE=$(grep -o ' is at http://127.0.0.1:[0-9]*/' "$RUNNER_TEMP/app.out" | head -1 | cut -d' ' -f4)
           MM=$(grep -o 'Mod Matrix at http://127.0.0.1:[0-9]*/' "$LOG" | tail -1 | cut -d' ' -f4)
           curl -fsS "$PAGE" | grep -q 'Perkons Mod Matrix Desktop'
           curl -fsS "${MM}api/status"
