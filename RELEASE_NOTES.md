@@ -1,4 +1,6 @@
-**New in 0.7.0: WHAT'S NEW, TROUBLESHOOTING and ABOUT.**
+**New in 0.7.1:** the window opens wider (1280 pixels), with room for the Mod Matrix's new FLASH meter (thanks to kiteless).
+
+**In 0.7.0: WHAT'S NEW, TROUBLESHOOTING and ABOUT.**
 
 * **WHAT'S NEW** lists every mod's and engine's recent changes, newest first, and marks the
   ones that arrived since you last looked (with the day and time), even while the app was
