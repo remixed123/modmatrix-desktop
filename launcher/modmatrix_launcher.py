@@ -1747,7 +1747,7 @@ def run_window(args, runtime, data, log):
         webview.settings['OPEN_DEVTOOLS_IN_DEBUG'] = False
     except Exception:
         pass
-    window = webview.create_window(TITLE, html=page('Starting...'), width=1180, height=860,
+    window = webview.create_window(TITLE, html=page('Starting...'), width=1280, height=860,
                                    min_size=(800, 600), background_color='#40318d',
                                    text_select=True)     # pywebview blocks selecting (so copying) text otherwise
     state = {'server': None}
