@@ -1,10 +1,11 @@
 # PyInstaller spec: the launcher only. The runtime (Python + toolchain) is copied into the app
-# by scripts/build_macos.sh / build_windows.ps1 after this runs.
+# by scripts/build_macos.sh / build_windows.ps1 / build_linux.sh after this runs.
 import re
 import sys
 
 VERSION = re.search(r"APP_VERSION = '([^']+)'", open('launcher/modmatrix_launcher.py').read()).group(1)
 NAME = 'Perkons Mod Matrix Desktop'
+EXE_NAME = 'perkons-mod-matrix' if sys.platform.startswith('linux') else NAME   # no spaces for a Linux terminal
 DEVELOPER = 'remixed123'
 # the Mac's About box and the Windows exe's Properties > Details (the launcher's CREDIT and
 # DISCLAIMER say the same: tests/test_launcher.py checks)
@@ -32,9 +33,9 @@ if sys.platform == 'win32':   # the exe's Properties > Details
 
 a = Analysis(['launcher/modmatrix_launcher.py'], datas=[('launcher/ui', 'ui'), ('content/processor.json', 'content'), ('content/processor.md', 'content'), ('content/troubleshooting.md', 'content')], excludes=['tkinter', 'unittest', 'pydoc', 'test'])
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=NAME, console=False, icon=ICON, version=VERSION_FILE,
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name=EXE_NAME, console=False, icon=ICON, version=VERSION_FILE,
           argv_emulation=False, upx=False)
-coll = COLLECT(exe, a.binaries, a.datas, name=NAME, upx=False)
+coll = COLLECT(exe, a.binaries, a.datas, name=EXE_NAME, upx=False)
 if sys.platform == 'darwin':
     app = BUNDLE(coll, name=f'{NAME}.app', icon=ICON, bundle_identifier='io.github.remixed123.perkonsmodmatrix',
                  version=VERSION,

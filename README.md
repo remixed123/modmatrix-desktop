@@ -1,7 +1,7 @@
 # <img src="assets/icon.png" alt="" width="64" align="center"> Perkons Mod Matrix Desktop
 
 The [Mod Matrix](https://github.com/kiteless/perkons-re) for the Erica Synths Pērkons HD-01,
-as a desktop app for Mac and Windows. Load your official firmware, tick the mods you want,
+as a desktop app for Mac and Windows (and, not tested yet, Linux). Load your official firmware, tick the mods you want,
 and get a modded firmware file to flash. Read each mod's user guide in the app, too. No Git,
 Python, compiler or terminal needed.
 
@@ -21,6 +21,11 @@ downloads the newest Mod Matrix each time it starts, so you always get kiteless'
   processor, **macOS 12 (Monterey) or later**. It won't run on older versions (10.14 Mojave,
   10.15 Catalina, 11 Big Sur).
 * **[Download for Windows](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-Windows.zip)**: Windows 10 or 11, 64-bit.
+* **[Download for Linux](https://github.com/remixed123/modmatrix-desktop/releases/latest/download/ModMatrixDesktop-Linux.tar.gz)**
+  (**not tested**): 64-bit Intel or AMD, glibc 2.35 or later (Ubuntu 22.04, Debian 12,
+  Fedora 36 or later, and similar). It's built automatically but nobody has tried it on a Linux
+  computer yet: if anything doesn't work, please
+  [open an issue](https://github.com/remixed123/modmatrix-desktop/issues).
 
 Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/releases).
 
@@ -38,6 +43,13 @@ Older versions: [all releases](https://github.com/remixed123/modmatrix-desktop/r
    folder together: the app needs the files next to it.
 2. Open the folder and run **Perkons Mod Matrix Desktop.exe**. The app isn't signed, so Windows may
    show "Windows protected your PC": click **More info**, then **Run anyway**.
+
+**Linux** (not tested)
+
+1. Extract it: `tar -xzf ModMatrixDesktop-Linux.tar.gz`
+2. Run it from a terminal: `cd perkons-mod-matrix && ./perkons-mod-matrix`. It opens in your
+   default web browser (there's no window of its own). Keep the terminal open while you use
+   it; press Ctrl-C there, or close the terminal, to quit.
 
 The first start needs an internet connection: the app downloads the Mod Matrix and the
 mods. After that it also starts offline, with the last version it downloaded.
@@ -143,8 +155,9 @@ tab when there's something new.
 * **Something went wrong:** the app writes a log, `launcher.log`, in its data folder:
   * Mac: `~/Library/Application Support/Perkons Mod Matrix/`
   * Windows: `%LOCALAPPDATA%\PerkonsModMatrix\`
+  * Linux: `~/.local/share/perkons-mod-matrix/`
 * **Start afresh:** quit the app and delete that folder.
-* **Uninstall:** delete the app (Mac) or the extracted folder (Windows), and the data folder.
+* **Uninstall:** delete the app (Mac) or the extracted folder (Windows, Linux), and the data folder.
 * Problems with the app itself: [open an issue](https://github.com/remixed123/modmatrix-desktop/issues).
   Problems with a mod: its repo.
 
@@ -187,6 +200,7 @@ Everything downloaded or built goes in the data folder, never in the app:
 
 * macOS: `~/Library/Application Support/Perkons Mod Matrix/`
 * Windows: `%LOCALAPPDATA%\PerkonsModMatrix\`
+* Linux: `~/.local/share/perkons-mod-matrix/` (or `$XDG_DATA_HOME/perkons-mod-matrix/`)
 
 with `framework/` (perkons-re), `cache/` (mods, measurements), `guides/` (the user guides
 you've opened) and `launcher.log`. Deleting
@@ -225,7 +239,15 @@ Windows (x64, unsigned for now):
 powershell -ExecutionPolicy Bypass -File scripts\build_windows.ps1   # -> dist\ModMatrixDesktop-Windows.zip
 ```
 
-GitHub Actions (`.github/workflows/release.yml`) builds both; a `v*` tag makes a draft
+Linux (x86_64; no window: it opens in the default browser, so it needs no GTK, WebKitGTK or
+Qt; built on Ubuntu 22.04 for glibc 2.35):
+
+```sh
+scripts/build_linux.sh                         # -> dist-linux/ModMatrixDesktop-Linux.tar.gz
+```
+
+GitHub Actions (`.github/workflows/release.yml`) builds all three, and on Linux also starts
+the packaged app headless and checks its page and the Mod Matrix answer; a `v*` tag makes a draft
 release with the builds and the toolchain's GPL source. The macOS build goes into a release
 only when it was signed and notarised (the secrets listed in the workflow).
 

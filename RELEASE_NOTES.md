@@ -1,4 +1,24 @@
-**New in 0.6.0: a PROCESSOR & MEMORY tab.** It explains how much the Pērkons can do at once.
+**New in 0.7.0: WHAT'S NEW, TROUBLESHOOTING and ABOUT.**
+
+* **WHAT'S NEW** lists every mod's and engine's recent changes, newest first, and marks the
+  ones that arrived since you last looked (with the day and time), even while the app was
+  closed. The number on the tab says how many. If a mod in the firmware on your Pērkons has
+  changed, build again and install it to get the change. **MARK ALL AS SEEN** when you're done.
+* **TROUBLESHOOTING** covers crackle, a mod you can't tick, whether to build again, a long hang
+  at start-up, the app not connecting, Windows not starting, and where to get help.
+* **USER GUIDES** now start with two **MOD MATRIX** guides from kiteless: **Build and flash**
+  and **Voice map**.
+* **CHECK FOR UPDATES** now only shows what needs you to act: a new version of the app, or an
+  update to the Mod Matrix (**UPDATE NOW**). Changes to the mods are on WHAT'S NEW.
+* **PROCESSOR & MEMORY** and **TROUBLESHOOTING** are kept up to date without a new version of
+  the app. The round arrow on each reads the latest.
+* **ABOUT** says who made what, with thanks, links and the licences.
+* **Linux (not tested):** a first Linux version, `ModMatrixDesktop-Linux.tar.gz`, for 64-bit
+  Intel or AMD PCs. It opens in your web browser. It's built automatically but nobody has
+  tried it on a Linux computer yet: if anything doesn't work, please
+  [open an issue](https://github.com/remixed123/modmatrix-desktop/issues).
+
+**In 0.6.0: a PROCESSOR & MEMORY tab.** It explains how much the Pērkons can do at once.
 
 * **Memory** is looked after for you: the Mod Matrix won't let you tick a mod that doesn't fit.
 * **Processor** is up to you: it depends on which engines play on which voices and how they're
@@ -52,6 +72,9 @@ No Git, Python, compiler or terminal needed. The first start needs an internet c
   Open it and drag the app to Applications.
 * Windows (10 or 11, 64-bit): `ModMatrixDesktop-Windows.zip`. Extract it and run
   `Perkons Mod Matrix Desktop.exe`. Not signed: if Windows warns, choose "More info", then "Run anyway".
+* Linux (64-bit, not tested): `ModMatrixDesktop-Linux.tar.gz`. Extract it and run
+  `./perkons-mod-matrix` from a terminal: it opens in your web browser. Problems: please
+  [open an issue](https://github.com/remixed123/modmatrix-desktop/issues).
 
 Install and use: see the [README](https://github.com/remixed123/modmatrix-desktop#readme).
 

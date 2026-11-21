@@ -1,4 +1,4 @@
-# Build the macOS and Windows apps; on a v* tag, attach them (and the GPL toolchain source)
+# Build the macOS, Windows and Linux apps; on a v* tag, attach them (and the GPL toolchain source)
 # to a draft GitHub Release. Started by hand (workflow_dispatch) or by pushing a tag.
 #
 # macOS signing and notarisation need these repository secrets (without them the macOS build
@@ -92,9 +92,46 @@ jobs:
           name: windows-x64
           path: dist/*.zip
 
+  linux:
+    runs-on: ubuntu-22.04      # the oldest glibc it runs on (2.35)
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: scripts/build_linux.sh
+      - name: Launcher tests
+        run: build/linux/venv/bin/python -m unittest discover -s tests
+      - name: App check (the packaged launcher starts and finds its runtime)
+        run: |
+          tar -xzf dist-linux/ModMatrixDesktop-Linux.tar.gz -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/perkons-mod-matrix/perkons-mod-matrix" --selftest
+          tail -3 ~/.local/share/perkons-mod-matrix/launcher.log
+      - name: App run (as a person would, the browser left out; quitting stops the Mod Matrix too)
+        run: |
+          APP="$RUNNER_TEMP/perkons-mod-matrix/perkons-mod-matrix"
+          LOG=~/.local/share/perkons-mod-matrix/launcher.log
+          BROWSER=true "$APP" > "$RUNNER_TEMP/app.out" 2>&1 &
+          PID=$!
+          for i in $(seq 1 300); do grep -q ' is at http' "$RUNNER_TEMP/app.out" && break; sleep 1; done
+          cat "$RUNNER_TEMP/app.out"
+          PAGE=$(grep -o 'http://127.0.0.1:[0-9]*/' "$RUNNER_TEMP/app.out" | head -1)
+          MM=$(grep -o 'Mod Matrix at http://127.0.0.1:[0-9]*/' "$LOG" | tail -1 | cut -d' ' -f4)
+          curl -fsS "$PAGE" | grep -q 'Perkons Mod Matrix Desktop'
+          curl -fsS "${MM}api/status"
+          curl -fsS "${PAGE}news" | head -c 300; echo
+          kill -TERM $PID; wait $PID || true     # (a background job ignores SIGINT; TERM = closing the terminal)
+          sleep 3
+          if curl -fsS "${MM}api/status"; then echo "the Mod Matrix is still running"; exit 1; fi
+          tail -5 "$LOG"
+      - name: Runtime check (toolchain, emulator, Mod Matrix server and both repos; no firmware)
+        run: build/linux/runtime/python/bin/python3 -I tests/smoke_build.py --runtime build/linux/runtime
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: dist-linux/*.tar.gz
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [macos, windows]
+    needs: [macos, windows, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write

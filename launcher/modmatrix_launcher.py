@@ -63,6 +63,7 @@ def _mac_is_intel():
 
 
 APP_FILE = ('ModMatrixDesktop-Windows.zip' if sys.platform == 'win32'
+            else 'ModMatrixDesktop-Linux.tar.gz' if sys.platform.startswith('linux')
             else 'ModMatrixDesktop-macOS-Intel.dmg' if sys.platform == 'darwin' and _mac_is_intel()
             else 'ModMatrixDesktop-macOS.dmg')
 TIMEOUT = 20
@@ -70,6 +71,7 @@ SERVER_START_TIMEOUT = 120
 KEEP_FRAMEWORKS = 2
 WINDOWS = platform.system() == 'Windows'
 MACOS = platform.system() == 'Darwin'
+LINUX = platform.system() == 'Linux'     # opens in the default browser: no window (see main)
 DEVELOPER = 'remixed123'
 TITLE = APP_NAME                 # the window; who made it is in ABOUT
 CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app by {DEVELOPER} (github.com/{DEVELOPER}).'
@@ -84,6 +86,8 @@ def build_name():
         return 'Windows'
     if MACOS:
         return 'Mac, Intel' if platform.machine() == 'x86_64' else 'Mac, Apple Silicon'
+    if LINUX:
+        return 'Linux (not tested)'
     return platform.system()
 
 
@@ -1764,13 +1768,21 @@ def run_window(args, runtime, data, log):
 
 
 def run_browser(args, runtime, data, log):
+    if not WINDOWS:                  # closing the terminal (SIGHUP) or a kill: stop the Mod Matrix too
+        import signal
+
+        def quit_(signum, frame):
+            raise KeyboardInterrupt
+        for sig in (signal.SIGHUP, signal.SIGTERM):
+            signal.signal(sig, quit_)
     server, url, notice = prepare_and_start(args, runtime, data, log, log)
     if notice:
         log(notice)
     webbrowser.open(url)
     print(f'{APP_NAME} is at {url} (close this window or press Ctrl-C to quit)', flush=True)
     try:
-        server.proc.wait()
+        while True:                  # not the Mod Matrix's process: UPDATE NOW and DEVELOPER replace it
+            time.sleep(3600)
     except KeyboardInterrupt:
         pass
     finally:
@@ -1796,6 +1808,13 @@ def main(argv=None):
         log(str(e))
         raise SystemExit(str(e))
     unblock_bundle(log)
+    if LINUX:
+        # Linux: the default browser. A window would need the system's GTK + WebKitGTK (or Qt
+        # bundled, ~200 MB), which differ from one distribution to the next
+        args.browser = True
+        if args.selftest:
+            log('selftest: Linux uses the browser')
+            return 0
     if not args.browser or args.selftest:
         try:
             window_backend()
