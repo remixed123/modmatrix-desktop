@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -536,6 +537,7 @@ class TestNewsSinceTheBuild(unittest.TestCase):
 
     def test_changes_since_the_build(self):
         self.new()                                                    # first run: all seen
+        time.sleep(0.05)
         self.build()                                                  # built after (with FW1)
         self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
         self.at(None, self.FW1, ('f100000', '2026-11-09T00:00:00Z', 'framework change'))
@@ -555,6 +557,7 @@ class TestNewsSinceTheBuild(unittest.TestCase):
         self.set('voice-a', ('a200000', '2026-11-12T00:00:00Z', 'since'), ('a100000', '2026-11-10T00:00:00Z', 'first'))
         self.new()                                                    # first run: a200000 counts as seen
         self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        time.sleep(0.05)                                              # (Windows' clock is coarse)
         self.build()
         self.assertEqual(self.new()[0]['Akords'], ['a200000'])
 
@@ -581,6 +584,7 @@ class TestNewsSinceTheBuild(unittest.TestCase):
         self.build('2001-01-01T00:00:00+00:00')
         self.assertIsNone(self.news.build()['framework'])
         self.build()
+        time.sleep(0.05)
         self.news.frameworks = FakeFrameworks(self.FW2)               # UPDATE NOW: after the build
         self.news.note_framework()
         self.assertEqual(self.news.build()['framework'], {'repo': L.FRAMEWORK_REPO, 'commit': self.FW1})

@@ -118,6 +118,9 @@ def work_dir(data):
     if WINDOWS and ' ' in d:
         os.makedirs(d, exist_ok=True)
         d = _short_path(d)
+    elif not MACOS and ' ' in d:     # Linux: a home folder with a space
+        import tempfile
+        d = os.path.join(tempfile.gettempdir(), f'perkons-mod-matrix-{os.getuid()}')
     return d
 
 

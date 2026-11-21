@@ -113,7 +113,8 @@ def main():
         assert set(a.options + a.voices) <= offered, sorted(set(a.options + a.voices) - offered)
         guides = api(page, '/guides/mods')['mods']
         print('guides:', len(guides), 'mods,', sum(1 for g in guides if g['readme']), 'with a README')
-        assert len(guides) == len(mods['options']) and all(g['readme'] for g in guides), guides
+        own = [g for g in guides if g['kind'] != 'matrix']     # (and the MOD MATRIX guides, from perkons-re)
+        assert len(own) == len(mods['options']) and all(g['readme'] for g in guides), guides
         first = guides[0]
         q = urllib.parse.urlencode({'repo': first['repo'], 'ref': first['ref'], 'path': first['readme']})
         assert api(page, f'/guides/readme?{q}')['text'].strip(), first

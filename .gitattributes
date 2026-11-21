@@ -1,0 +1,6 @@
+# LF everywhere, also in Windows checkouts: the app reads content/ and its UI files as they are
+# (a CRLF copy breaks the page markers that end a line)
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary
