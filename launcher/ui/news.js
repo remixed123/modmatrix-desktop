@@ -24,10 +24,12 @@ const whatsnew = (() => {
     const year = d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined;
     return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long", year });
   };
-  const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
+  /* "21 November, 17:41" (the person's own clock format) */
+  const at = (d) => d.toLocaleString(undefined, { day: "numeric", month: "long", hour: "numeric", minute: "2-digit" });
+  const sinceText = (secs) => at(new Date(secs * 1000));
   /* "your build on 12 November" or "you last looked (12 November)" */
   const sinceWhat = (i) => i.build
-    ? `your build on ${new Date(i.build.when).toLocaleDateString(undefined, { day: "numeric", month: "long" })}`
+    ? `your build on ${at(new Date(i.build.when))}`
     : `you last looked (${sinceText(i.since)})`;
 
   /* what's new, in short: for the tab's count, the updates panel's line and the summary box */
