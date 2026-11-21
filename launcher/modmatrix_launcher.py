@@ -14,7 +14,9 @@ Everything it downloads or writes goes in the data folder (data_dir()), never in
     modmatrix_launcher.py [--browser] [--framework DIR] [--repos-url URL] [--runtime DIR]
 
 --framework and --repos-url are for testing: a local perkons-re checkout instead of the
-download, and a different mod repo list instead of the official one.
+download, and a different mod repo list instead of the official one. The app's hidden DEVELOPER
+panel (ABOUT: Option-click, Alt-click on Windows, the version line) does the same from inside the
+app, from GitHub branches too (Developer, below); these flags take precedence over it.
 """
 import argparse
 import json
@@ -41,6 +43,7 @@ COMMIT_URL = f'https://api.github.com/repos/{FRAMEWORK_REPO}/commits/{FRAMEWORK_
 # git's own ref list: no API rate limit (60 an hour per address, shared on some networks)
 REFS_URL = f'https://github.com/{FRAMEWORK_REPO}.git/info/refs?service=git-upload-pack'   # = GIT_REFS_URL for it
 ZIP_URL = 'https://codeload.github.com/' + FRAMEWORK_REPO + '/zip/{sha}'
+REPO_ZIP_URL = 'https://codeload.github.com/{repo}/zip/{sha}'
 GIT_REFS_URL = 'https://github.com/{repo}.git/info/refs?service=git-upload-pack'
 COMPARE_URL = 'https://api.github.com/repos/{repo}/compare/{old}...{new}'
 APP_REPO = 'remixed123/modmatrix-desktop'
@@ -71,7 +74,8 @@ DEVELOPER = 'remixed123'
 TITLE = APP_NAME                 # the window; who made it is in ABOUT
 CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app by {DEVELOPER} (github.com/{DEVELOPER}).'
 DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
-              'flashed entirely at your own risk.')
+              'flashed entirely at your own risk. Reflash the official firmware back on the Perkons '
+              'before contacting Erica Synths support.')
 
 
 def build_name():
@@ -242,10 +246,14 @@ def compatible(framework, runtime_info):
 
 
 class Frameworks:
-    """framework/<sha>/ folders in the data folder; current.json names the one in use."""
+    """framework/<sha>/ folders in the data folder; current.json names the one in use. A
+    developer's perkons-re (another repo or branch, Developer) goes in framework-dev/ instead,
+    so the official one is still there, unchanged, when they go back to it."""
 
-    def __init__(self, data, log):
-        self.dir = os.path.join(data, 'framework')
+    def __init__(self, data, log, repo=FRAMEWORK_REPO, ref=FRAMEWORK_REF):
+        self.repo, self.ref = repo, ref
+        self.official = (repo, ref) == (FRAMEWORK_REPO, FRAMEWORK_REF)
+        self.dir = os.path.join(data, 'framework' if self.official else 'framework-dev')
         self.current_file = os.path.join(self.dir, 'current.json')
         self.log = log
         os.makedirs(self.dir, exist_ok=True)
@@ -253,14 +261,20 @@ class Frameworks:
     def current(self):
         try:
             with open(self.current_file) as f:
-                sha = json.load(f)['sha']
-        except (OSError, ValueError, KeyError):
+                cur = json.load(f)
+            sha = cur['sha']
+        except (OSError, ValueError, KeyError, TypeError):
             return None
+        if (cur.get('repo', FRAMEWORK_REPO), cur.get('ref', FRAMEWORK_REF)) != (self.repo, self.ref):
+            return None                  # framework-dev/: another branch's
         path = os.path.join(self.dir, sha)
         return (sha, path) if os.path.exists(os.path.join(path, 'tools', 'modmatrix.py')) else None
 
     def latest_sha(self):
-        """The commit main is at: from the API, or (refused, e.g. its rate limit) git's ref list."""
+        """The commit the branch is at: from the API, or (refused, e.g. its rate limit) git's
+        ref list; a developer's branch from git's ref list only (its name may have a slash)."""
+        if not self.official:
+            return ref_commit(self.repo, self.ref)
         try:
             sha = FETCH(COMMIT_URL, accept='application/vnd.github.sha').decode().strip()
         except urllib.error.HTTPError as e:
@@ -279,7 +293,7 @@ class Frameworks:
         os.makedirs(tmp)
         zpath = tmp + '.zip'
         with open(zpath, 'wb') as f:
-            f.write(FETCH(ZIP_URL.format(sha=sha)))
+            f.write(FETCH(REPO_ZIP_URL.format(repo=self.repo, sha=sha)))
         try:
             with zipfile.ZipFile(zpath) as z:
                 for info in z.infolist():
@@ -306,7 +320,8 @@ class Frameworks:
 
     def set_current(self, sha):
         with open(self.current_file + '.tmp', 'w') as f:
-            json.dump({'sha': sha, 'installed': time.strftime('%Y-%m-%dT%H:%M:%S')}, f)
+            json.dump({'sha': sha, 'repo': self.repo, 'ref': self.ref,
+                       'installed': time.strftime('%Y-%m-%dT%H:%M:%S')}, f)
         os.replace(self.current_file + '.tmp', self.current_file)
         self.prune(sha)
 
@@ -342,6 +357,10 @@ class Frameworks:
                 return cur[1], 'The Mod Matrix update could not be downloaded: using the one downloaded before.'
             raise
         diffs = compatible(path, runtime_info)
+        if diffs and not self.official:        # a developer wants this one, not an older one
+            self.log(f'{self.repo} {self.ref} {sha[:10]} needs {", ".join(diffs)}; trying it anyway')
+            self.set_current(sha)
+            return path, f'This perkons-re asks for other package versions than the app has ({", ".join(diffs)}).'
         if diffs and cur:
             self.log(f'perkons-re {sha[:10]} needs {", ".join(diffs)}; staying on {cur[0][:10]}')
             return cur[1], 'A newer Mod Matrix needs a newer version of this app; using the one downloaded before.'
@@ -614,11 +633,12 @@ class Updates:
                 got['app'] = where.rstrip('/').rsplit('/', 1)[-1]
         except Exception as e:
             got['failed'].append(['this app', str(e)])
-        if self.base['framework']:
+        if self.base['framework'] and self.frameworks:
+            fw = self.frameworks
             try:
-                got['framework'] = ref_commit(FRAMEWORK_REPO, FRAMEWORK_REF)
+                got['framework'] = ref_commit(fw.repo, fw.ref)
             except Exception as e:
-                got['failed'].append([FRAMEWORK_REPO, str(e)])
+                got['failed'].append([fw.repo, str(e)])
         for (repo, ref) in sorted(self.base['repos']):
             try:
                 got['repos'][(repo, ref)] = ref_commit(repo, ref)
@@ -677,9 +697,10 @@ class Updates:
         # perkons-re
         old = self.base['framework']
         new = got['framework']
-        if old and new and new != old:
-            diff = self.compare(FRAMEWORK_REPO, old, new) or {}
-            out['framework'] = {'repo': FRAMEWORK_REPO, 'commits': diff.get('commits', []), 'more': diff.get('more', 0)}
+        if old and new and new != old and self.frameworks:
+            repo = self.frameworks.repo
+            diff = self.compare(repo, old, new) or {}
+            out['framework'] = {'repo': repo, 'commits': diff.get('commits', []), 'more': diff.get('more', 0)}
         # the mods offered: the Mod Matrix's list against the repos now
         then = {o['id']: o for o in self.matrix_options() if o.get('repo') and not o.get('local')}
         try:
@@ -720,6 +741,292 @@ class Updates:
             self.last = None
             self.flag = None
         threading.Thread(target=self.snapshot, daemon=True).start()
+        return notice
+
+
+# -- DEVELOPER: test a perkons-re or mod repo branch ---------------------------------------------
+#
+# Hidden: ABOUT, Option-click (Alt-click) the version line. A developer can run the Mod Matrix on
+# another branch of kiteless/perkons-re, and choose a branch for each mod repo (or leave one out).
+# Only what kiteless has registered: perkons-re itself and the mod repos in kiteless's repos.json,
+# chosen from drop-downs (any branch of them). Work stays in the one shared Mod Matrix and its
+# repos, not in forks nobody else knows about. Saved in developer.json in the data folder, so it
+# stays until BACK TO OFFICIAL. A mod repo branch is read
+# like any mod repo: it needs its perkons-mods.json. (--framework still runs a folder.)
+
+OFFICIAL_REPOS_URL = 'https://raw.githubusercontent.com/kiteless/perkons-re-mods/main/repos.json'
+LEAVE_OUT = '-'              # a mod repo's choice: not offered
+FRAMEWORK_NAME = FRAMEWORK_REPO.split('/')[1]
+
+
+def framework_repos(listed):
+    """The perkons-re repos a developer may choose: kiteless's, and <owner>/perkons-re of each
+    owner kiteless lists a mod repo of (people kiteless has registered), kiteless's first."""
+    out = [FRAMEWORK_REPO]
+    for r in listed:
+        owner = str(r.get('repo', '')).split('/')[0] if isinstance(r, dict) else ''
+        cand = f'{owner}/{FRAMEWORK_NAME}'
+        if owner and REPO_RE.match(cand) and cand.lower() not in {o.lower() for o in out}:
+            out.append(cand)
+    return out
+
+
+def repo_branches(repo):
+    """Every branch of a GitHub repo, from git's own ref list (no API rate limit)."""
+    refs = FETCH(GIT_REFS_URL.format(repo=repo)).decode('ascii', 'replace')
+    return sorted(set(re.findall(r'[0-9a-f]{40} refs/heads/([^\s\x00]+)', refs)), key=str.casefold)
+
+
+def _ref(ref, what):
+    if not (isinstance(ref, str) and REF_RE.match(ref) and _safe_rel(ref)):
+        raise ValueError(f'{what}: not a branch name: {ref!r}')
+    return ref
+
+
+class Developer:
+    def __init__(self, data, log, args=None):
+        self.data, self.log = data, log
+        self.args = args
+        self.path = os.path.join(data, 'developer.json')
+        self.list_path = os.path.join(data, 'developer-repos.json')
+        self.official_copy = os.path.join(data, 'developer-official-repos.json')
+        self.server = self.updates = self.shell = None     # set once the Mod Matrix runs
+        self.lock = threading.Lock()
+
+    # the settings ------------------------------------------------------------------------
+    @staticmethod
+    def empty():
+        return {'framework': None, 'repos': [], 'off': []}
+
+    @staticmethod
+    def validate(raw):
+        """The panel's choices ({framework: a branch or '', repos: {repo: a branch, '' for its
+        official one, or '-' to leave it out}}) or saved settings -> settings (only what differs
+        from official); ValueError naming what's wrong. Whether the repos are registered and the
+        branches exist is check()'s (it needs GitHub)."""
+        out = Developer.empty()
+        fw = raw.get('framework')
+        if isinstance(fw, str):
+            fw = {'repo': FRAMEWORK_REPO, 'ref': fw}
+        if isinstance(fw, dict) and fw.get('ref'):
+            repo = str(fw.get('repo') or FRAMEWORK_REPO)
+            if not REPO_RE.match(repo) or repo.split('/')[1].lower() != FRAMEWORK_NAME:
+                raise ValueError(f'not a {FRAMEWORK_NAME} repo: {repo!r}')
+            if repo.lower() == FRAMEWORK_REPO.lower():
+                repo = FRAMEWORK_REPO
+            if (repo, fw['ref']) != (FRAMEWORK_REPO, FRAMEWORK_REF):
+                out['framework'] = {'repo': repo, 'ref': _ref(fw['ref'], repo)}
+        repos = raw.get('repos') or {}
+        if isinstance(repos, list) or 'off' in raw:     # saved: [{repo, ref}] and off: [repo]
+            repos = repos or []
+            repos = {**{r['repo']: r['ref'] for r in repos if isinstance(r, dict) and 'repo' in r},
+                     **{name: LEAVE_OUT for name in raw.get('off') or []}}
+        for repo, ref in repos.items():
+            if not REPO_RE.match(str(repo)):
+                raise ValueError(f'not a GitHub repo: {repo!r}')
+            if ref == LEAVE_OUT:
+                out['off'].append(repo)
+            elif ref:
+                out['repos'].append({'repo': repo, 'ref': _ref(ref, repo)})
+        return out
+
+    def load(self):
+        try:
+            with open(self.path, encoding='utf-8') as f:
+                return self.validate(json.load(f))
+        except (OSError, ValueError, AttributeError, TypeError) as e:
+            if os.path.exists(self.path):
+                self.log(f'developer settings ignored: {e}')
+            return self.empty()
+
+    def save(self, settings):
+        if settings == self.empty():
+            for p in (self.path, self.list_path):
+                if os.path.exists(p):
+                    os.remove(p)
+            return
+        tmp = self.path + '.part'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2)
+        os.replace(tmp, self.path)
+
+    def label(self, settings=None):
+        """What runs instead of official, for the log ('' when everything is official)."""
+        s = settings or self.load()
+        parts = []
+        if getattr(self.args, 'framework', None):
+            parts.append(f'perkons-re: {self.args.framework} (--framework)')
+        elif s['framework']:
+            fw = s['framework']
+            parts.append('perkons-re: ' + (fw['ref'] if fw['repo'] == FRAMEWORK_REPO else f'{fw["repo"]} {fw["ref"]}'))
+        if getattr(self.args, 'repos_url', None):
+            parts.append(f'mod repos: {self.args.repos_url} (--repos-url)')
+        elif s['repos'] or s['off']:
+            parts.append('mod repos: ' + ', '.join([f'{r["repo"]} {r["ref"]}' for r in s['repos']] +
+                                                   [f'{name} left out' for name in s['off']]))
+        return '; '.join(parts)
+
+    def choices(self):
+        """What the panel shows: perkons-re's branches and each registered mod repo's, what is
+        chosen now, the command-line flags in use and the tag. Branches read from GitHub."""
+        from concurrent.futures import ThreadPoolExecutor
+        s = self.load()
+        listed = [r for r in self.official_repos() if isinstance(r, dict) and REPO_RE.match(str(r.get('repo', '')))]
+        if not listed:
+            raise LaunchError("kiteless's mod repo list could not be read: check the internet connection.")
+
+        def branches(repo):
+            try:
+                return repo_branches(repo), None
+            except Exception as e:
+                self.log(f'developer: branches of {repo}: {e}')
+                return [], str(e)
+        fws = framework_repos(listed)
+        with ThreadPoolExecutor(NEWS_WORKERS) as pool:
+            got = list(pool.map(branches, fws + [r['repo'] for r in listed]))
+        chosen = {**{r['repo'].lower(): r['ref'] for r in s['repos']}, **{n.lower(): LEAVE_OUT for n in s['off']}}
+        fw = s['framework'] or {'repo': FRAMEWORK_REPO, 'ref': ''}
+        # an owner's perkons-re that GitHub doesn't have (most have none) isn't offered
+        offered = [{'repo': repo, 'branches': b, 'failed': err} for repo, (b, err) in zip(fws, got)
+                   if repo == FRAMEWORK_REPO or b or repo.lower() == fw['repo'].lower()]
+        got = got[len(fws):]
+        return {'framework': {'official': FRAMEWORK_REF, 'repos': offered,
+                              'chosen': {'repo': fw['repo'], 'ref': fw['ref']}},
+                'repos': [{'repo': r['repo'], 'official': r.get('ref') or 'main', 'note': str(r.get('note', '')),
+                           'branches': b, 'failed': err, 'chosen': chosen.get(r['repo'].lower(), '')}
+                          for r, (b, err) in zip(listed, got)],
+                'flags': {'framework': getattr(self.args, 'framework', None), 'repos_url': getattr(self.args, 'repos_url', None)},
+                'label': self.label(s)}
+
+    # what the Mod Matrix runs on ---------------------------------------------------------
+    def framework(self, runtime, status=lambda msg: None, settings=None):
+        """(the perkons-re folder, its Frameworks or None for a folder, notice or None)."""
+        s = settings or self.load()
+        if getattr(self.args, 'framework', None):
+            return os.path.abspath(self.args.framework), None, None
+        fw = s['framework'] or {}
+        if fw and fw['repo'] != FRAMEWORK_REPO and fw['repo'].lower() not in {
+                r.lower() for r in framework_repos(self.official_repos())}:
+            self.log(f'developer: {fw["repo"]} left out: its owner has no repo in kiteless\'s list')
+            fw = {}
+        frameworks = Frameworks(self.data, self.log, fw.get('repo', FRAMEWORK_REPO), fw.get('ref', FRAMEWORK_REF))
+        path, notice = frameworks.prepare(runtime.info, status)
+        return path, frameworks, notice
+
+    def official_repos(self):
+        """The official repo list (kiteless/perkons-re-mods repos.json), or the copy from last time."""
+        try:
+            raw = FETCH(OFFICIAL_REPOS_URL)
+            spec = json.loads(raw)
+            if not isinstance(spec.get('repos'), list):
+                raise ValueError('no repos in it')
+        except Exception as e:
+            self.log(f'developer: the official repo list: {e}')
+            try:
+                with open(self.official_copy, encoding='utf-8') as f:
+                    return json.load(f)['repos']
+            except (OSError, ValueError, KeyError):
+                return []
+        with open(self.official_copy, 'w', encoding='utf-8') as f:
+            json.dump(spec, f)
+        return spec['repos']
+
+    def repos_url(self, settings=None):
+        """The mod repo list for the Mod Matrix (PERKONS_REPOS_URL): kiteless's list with the
+        chosen branches (those repos ticked) and without the repos left out; a file:// link to
+        it in the data folder. None: the official one. Only repos kiteless lists."""
+        if getattr(self.args, 'repos_url', None):
+            return self.args.repos_url
+        s = settings or self.load()
+        if not (s['repos'] or s['off']):
+            return None
+        mine = {r['repo'].lower(): r for r in s['repos']}
+        off = {n.lower() for n in s['off']}
+        out, changed = [], False
+        for r in self.official_repos():
+            if not isinstance(r, dict) or not isinstance(r.get('repo'), str):
+                continue
+            name = r['repo'].lower()
+            if name in off:
+                changed = True
+            elif name in mine:
+                out.append({**r, 'ref': mine.pop(name)['ref'], 'default': True})
+                changed = True
+            else:
+                out.append(r)
+        for r in mine.values():
+            self.log(f'developer: {r["repo"]} left out: not in kiteless\'s repo list')
+        if not changed or not out:
+            return None                                  # nothing listed changed, or nothing left: official
+        tmp = self.list_path + '.part'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump({'repos': out}, f, indent=2)
+        os.replace(tmp, self.list_path)
+        import pathlib
+        return pathlib.Path(self.list_path).as_uri()
+
+    # the panel's APPLY ---------------------------------------------------------------------
+    def check(self, settings):
+        """Every mod repo chosen is in kiteless's repo list, one is left in, and every branch
+        exists (one deleted since the panel listed it fails here, not in the Mod Matrix)."""
+        if settings['repos'] or settings['off']:
+            listed = {r.get('repo', '').lower() for r in self.official_repos() if isinstance(r, dict)}
+            if not listed:
+                raise LaunchError("kiteless's mod repo list could not be read: check the internet connection.")
+            for name in [r['repo'] for r in settings['repos']] + settings['off']:
+                if name.lower() not in listed:
+                    raise ValueError(f"{name} is not in kiteless's mod repo list (repos.json in "
+                                     f"kiteless/perkons-re-mods): only registered mod repos can be used here")
+            if listed <= {n.lower() for n in settings['off']}:
+                raise ValueError('Leave at least one mod repo in.')
+        fw = settings['framework']
+        if fw and fw['repo'] != FRAMEWORK_REPO:
+            if fw['repo'].lower() not in {r.lower() for r in framework_repos(self.official_repos())}:
+                raise ValueError(f"{fw['repo']}: only {FRAMEWORK_REPO}, or the {FRAMEWORK_NAME} of someone with a "
+                                 "mod repo in kiteless's list, can be used here")
+        for src in ([fw] if fw else []) + settings['repos']:
+            try:
+                ref_commit(src['repo'], src['ref'])
+            except LaunchError:
+                raise ValueError(f'{src["repo"]} has no branch {src["ref"]}') from None
+            except Exception as e:
+                raise LaunchError(f'GitHub could not be reached to check {src["repo"]} ({e}).') from None
+
+    def apply(self, raw, runtime):
+        """Save the settings and start the Mod Matrix again on them; back on the old ones if
+        it won't start. Returns a notice or None."""
+        new = self.validate(raw)
+        with self.lock:
+            self.check(new)
+            old = self.load()
+            server, updates = self.server, self.updates
+            old_framework, old_url = server.framework, server.repos_url
+            self.save(new)
+            started = False
+            try:
+                framework, frameworks, notice = self.framework(runtime, settings=new)
+                url = self.repos_url(new)
+                with updates.lock:
+                    server.repos_url = url
+                    started = True
+                    server.restart(framework)
+                    updates.frameworks = frameworks
+                    updates.last = updates.flag = None
+            except Exception as e:
+                self.log(f'developer: {e}; back to the settings before')
+                self.save(old)
+                if started:
+                    server.repos_url = old_url
+                    try:
+                        server.restart(old_framework)
+                    except LaunchError as e2:
+                        self.log(f'developer: the Mod Matrix before did not start either: {e2}')
+                raise LaunchError(f'The Mod Matrix did not start on these settings, so the app went back to the ones '
+                                  f'before ({e}). Details are in the log file.') from None
+            self.log('developer: ' + (self.label(new) or 'back to official'))
+        if self.shell:
+            self.shell.set_framework(frameworks)
+        threading.Thread(target=updates.snapshot, daemon=True).start()
         return notice
 
 
@@ -771,6 +1078,7 @@ class Guides:
         self.root = os.path.join(data, 'guides')
         self.matrix_url, self.log = matrix_url, log
         self.fresh = fresh          # () -> {options, failed}: the repos read again now (Server.fresh_options)
+        self.framework = (FRAMEWORK_REPO, FRAMEWORK_REF)     # the MOD MATRIX guides' perkons-re (Developer)
 
     def mods(self, fresh=False):
         """Every offered mod (all repos), A-Z by title, with its README's path in its repo.
@@ -805,8 +1113,9 @@ class Guides:
 
     def listing(self, fresh=False):
         """The USER GUIDES list: the MOD MATRIX guides first, then every mod (mods())."""
-        own = [{**g, 'kind': 'matrix', 'repo': FRAMEWORK_REPO, 'ref': FRAMEWORK_REF, 'dir': None,
-                'author': FRAMEWORK_REPO.split('/')[0]} for g in MATRIX_GUIDES]
+        repo, ref = self.framework
+        own = [{**g, 'kind': 'matrix', 'repo': repo, 'ref': ref, 'dir': None,
+                'author': repo.split('/')[0]} for g in MATRIX_GUIDES]
         return own + self.mods(fresh)
 
     def cache_path(self, repo, ref, path):
@@ -933,12 +1242,21 @@ class Content:
 # folder for offline use. "Seen" is the changes the person has marked as seen (MARK ALL AS SEEN on the
 # WHAT'S NEW tab), by commit, not by date: a change merged in later, with an
 # older date, still counts as new. On the very first run everything counts as seen.
+#
+# Once the person has built a firmware (a perkons-re whose Mod Matrix records its downloads:
+# /api/builds), NEW is narrower: the changes to what is in that build since it was made, the
+# rebuild question. A mod's change is new when it isn't in the mod folder's feed at the commit
+# that was built (that feed never changes, so it's kept); perkons-re's the same, at the commit
+# the app ran when the build was made (news/frameworks.json: each one and from when). Mods not
+# in the build have nothing new. Marked as seen still counts as seen.
 
 FEED_URL = 'https://github.com/{repo}/commits/{ref}/{path}.atom'
 FRAMEWORK_FEED = f'https://github.com/{FRAMEWORK_REPO}/commits/{FRAMEWORK_REF}.atom'
+REF_FEED_URL = 'https://github.com/{repo}/commits/{ref}.atom'
 NEWS_TTL = 600               # seconds: the feeds are read again after this long (or on Refresh)
 NEWS_WORKERS = 8
 ATOM = '{http://www.w3.org/2005/Atom}'
+BUILDS_TIMEOUT = 5
 COMMIT_LINK = re.compile(r'^https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/commit/([0-9a-f]{7,40})$')
 
 
@@ -962,23 +1280,110 @@ def parse_feed(raw):
     return out
 
 
+def _when(iso):
+    """An ISO 8601 time -> seconds, or None."""
+    import datetime
+    try:
+        return datetime.datetime.fromisoformat(iso.replace('Z', '+00:00')).timestamp()
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
 class News:
     def __init__(self, data, guides, log):
         self.root = os.path.join(data, 'news')
         self.guides, self.log = guides, log
         self.lock = threading.Lock()
         self.last = None              # (time, result)
+        self.frameworks = None        # the Frameworks in use (Shell.set_framework), None for a folder
+
+    # -- the build: what's on the person's Pērkons, as far as the app can know -------------------
+
+    def note_framework(self):
+        """The perkons-re running from now (the Mod Matrix started on it): kept with the time, so a
+        build can be matched with the perkons-re it was made with."""
+        cur = self.frameworks.current() if self.frameworks else None
+        with self.lock:
+            log = self._read('frameworks.json', [])
+            if cur and (not log or (log[-1]['repo'], log[-1]['sha']) != (self.frameworks.repo, cur[0])):
+                log = (log + [{'repo': self.frameworks.repo, 'sha': cur[0], 'since': time.time()}])[-50:]
+                self._write('frameworks.json', log)
+            elif not cur and log and log[-1].get('sha'):
+                self._write('frameworks.json', (log + [{'repo': None, 'sha': None, 'since': time.time()}])[-50:])
+
+    def build(self):
+        """The newest build the Mod Matrix recorded (the last one known, when it can't say: not
+        running, or a perkons-re from before /api/builds), with the perkons-re it was made with;
+        or None."""
+        known = self._read('build.json', None)
+        try:
+            builds = json.loads(FETCH(self.guides.matrix_url + 'api/builds', timeout=BUILDS_TIMEOUT))['builds']
+            newest = builds[0] if builds and isinstance(builds[0], dict) else None
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and known:      # a perkons-re that doesn't record builds: the kept one is
+                self.log('news: this Mod Matrix doesn\'t record builds; the last known build is dropped')
+                try:                         # behind (builds made on it aren't known)
+                    os.remove(os.path.join(self.root, 'build.json'))
+                except OSError:
+                    pass
+            return None if e.code == 404 else known
+        except Exception:
+            return known                     # not running, or not answering: the last one known
+        when = _when(newest.get('when')) if newest else None
+        if when is None or (known and known.get('when') == newest['when']):
+            return known
+        build = {'when': newest['when'], 'version': newest.get('version'), 'framework': None, 'mods': [
+            {'id': m['id'], 'title': m.get('title') or m['id'], 'repo': m.get('repo'), 'commit': m.get('commit')}
+            for m in newest.get('mods', []) if isinstance(m, dict) and isinstance(m.get('id'), str)]}
+        ran = [f for f in self._read('frameworks.json', []) if f['since'] <= when]
+        if ran and ran[-1].get('sha'):
+            build['framework'] = {'repo': ran[-1]['repo'], 'commit': ran[-1]['sha']}
+        self._write('build.json', build)
+        return build
+
+    def _at(self, url):
+        """A feed at a fixed commit: its commits (kept: it never changes), or None."""
+        kept = self._read('at.json', {})
+        if url not in kept:
+            changes = self._fetch({'key': url, 'url': url})
+            if changes is None:
+                return None
+            kept[url] = [c['sha'] for c in changes]
+            self._write('at.json', dict(list(kept.items())[-200:]))
+        return set(kept[url])
+
+    def _built(self, feeds, build):
+        """Each feed's commits at the build ({key: set}); a feed not in the build, or whose
+        built feed couldn't be read, isn't there."""
+        if not build:
+            return {}
+        by_id = {m['id']: m for m in build['mods']}
+        want = {}
+        for f in feeds:
+            if f['kind'] == 'framework':
+                fw = build.get('framework')
+                if fw and fw['repo'] == f['repo'] and re.fullmatch(r'[0-9a-f]{40}', fw['commit'] or ''):
+                    want[f['key']] = REF_FEED_URL.format(repo=f['repo'], ref=fw['commit'])
+            else:
+                m = by_id.get(f['id'])
+                if m and m['repo'] == f['repo'] and re.fullmatch(r'[0-9a-f]{40}', m['commit'] or ''):
+                    want[f['key']] = f['url'].replace(f'/commits/{f["ref"]}/', f'/commits/{m["commit"]}/', 1)
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(NEWS_WORKERS) as pool:
+            got = dict(zip(want, pool.map(self._at, want.values())))
+        return {k: v for k, v in got.items() if v is not None}
 
     def feeds(self):
         """perkons-re first, then every mod in the Mod Matrix's list (A-Z)."""
-        out = [{'key': FRAMEWORK_REPO, 'id': None, 'title': 'Mod Matrix (perkons-re)', 'kind': 'framework',
-                'repo': FRAMEWORK_REPO, 'author': FRAMEWORK_REPO.split('/')[0], 'url': FRAMEWORK_FEED}]
+        repo, ref = getattr(self.guides, 'framework', (FRAMEWORK_REPO, FRAMEWORK_REF))
+        out = [{'key': repo, 'id': None, 'title': 'Mod Matrix (perkons-re)', 'kind': 'framework',
+                'repo': repo, 'ref': ref, 'author': repo.split('/')[0], 'url': REF_FEED_URL.format(repo=repo, ref=ref)}]
         for m in self.guides.mods():
             repo, ref, path = m.get('repo'), m.get('ref') or 'main', m.get('dir') or ''
             if not (REPO_RE.match(repo or '') and REF_RE.match(ref) and _safe_rel(ref) and _safe_rel(path)):
                 continue
             out.append({'key': m['id'], 'id': m['id'], 'title': m['title'], 'kind': m['kind'], 'repo': repo,
-                        'author': m.get('author') or repo.split('/')[0],
+                        'ref': ref, 'author': m.get('author') or repo.split('/')[0],
                         'url': FEED_URL.format(repo=repo, ref=ref, path=urllib.request.quote(path))})
         return out
 
@@ -1005,9 +1410,12 @@ class News:
             return None
 
     def get(self, fresh=False):
-        """{items: [feed + changes (each with new: bool) + added], removed: [titles], since, offline: [titles]}"""
+        """{items: [feed + changes (each with new: bool) + added + in_build], removed: [titles], since,
+        offline: [titles], build: {when, mods: [titles]} or None}"""
+        build = self.build()
         with self.lock:
-            if not fresh and self.last and time.time() - self.last[0] < NEWS_TTL:
+            if (not fresh and self.last and time.time() - self.last[0] < NEWS_TTL
+                    and self.last[1]['build_when'] == (build or {}).get('when')):
                 return self.last[1]
             from concurrent.futures import ThreadPoolExecutor
             feeds = self.feeds()
@@ -1036,14 +1444,25 @@ class News:
                 seen['feeds'][f['key']] = [c['sha'] for c in f['changes']]
             if late:
                 self._write('seen.json', seen)
+            built = self._built(feeds, build)
+            in_build = {m['id'] for m in build['mods']} if build else set()
+            # marked as seen before the build: the build's own feeds say what's new
+            seen_after = not build or seen['at'] >= _when(build['when'])
             for feed in feeds:
                 known = set(seen['feeds'].get(feed['key'], []))
                 feed['added'] = feed['key'] not in seen['mods']
+                feed['in_build'] = feed['kind'] == 'framework' or feed['id'] in in_build
                 for c in feed['changes']:
                     c['new'] = not feed['added'] and c['sha'] not in known
+                    if build and feed['key'] in built:
+                        c['new'] = c['sha'] not in built[feed['key']] and (c['new'] or not seen_after)
+                    elif build and not feed['in_build']:
+                        c['new'] = False          # not on the Pērkons: nothing to rebuild for
             here = {f['key'] for f in feeds}
             out = {'items': feeds, 'since': seen['at'], 'offline': offline,
-                   'removed': sorted(t for k, t in seen['mods'].items() if k not in here)}
+                   'removed': sorted(t for k, t in seen['mods'].items() if k not in here),
+                   'build': {'when': build['when'], 'mods': [m['title'] for m in build['mods']]} if build else None,
+                   'build_when': (build or {}).get('when')}
             self.last = (time.time(), out)
             return out
 
@@ -1077,8 +1496,9 @@ class News:
 class Shell:
     """The local web server for the app's page (127.0.0.1, a free port)."""
 
-    def __init__(self, matrix_url, data, log, fresh=None, updates=None):
+    def __init__(self, matrix_url, data, log, fresh=None, updates=None, developer=None, runtime=None):
         self.matrix_url = matrix_url
+        self.developer, self.runtime = developer, runtime
         self.guides = Guides(data, matrix_url, log, fresh)
         self.processor = Content(data, log, 'processor.json', parse_processor)
         self.processor_page = Content(data, log, 'processor.md', parse_page)
@@ -1091,6 +1511,15 @@ class Shell:
     def set_matrix(self, url):
         """The Mod Matrix restarted (UPDATE NOW): on a new port."""
         self.matrix_url = self.guides.matrix_url = url
+        self.news.note_framework()          # UPDATE NOW: perhaps a new perkons-re
+
+    def set_framework(self, frameworks):
+        """The perkons-re the MOD MATRIX guides and WHAT'S NEW follow (Developer): its repo and
+        branch; the official one for a folder on this computer."""
+        self.guides.framework = (frameworks.repo, frameworks.ref) if frameworks else (FRAMEWORK_REPO, FRAMEWORK_REF)
+        self.news.frameworks = frameworks
+        self.news.note_framework()
+        self.news.last = None
 
     def start(self):
         from http.server import ThreadingHTTPServer
@@ -1169,6 +1598,8 @@ class Shell:
                         return self.send_json(shell.processor_page.get(fresh))
                     if url.path.startswith('/content/') and url.path[len('/content/'):] in shell.pages:
                         return self.send_json(shell.pages[url.path[len('/content/'):]].get(fresh))
+                    if url.path == '/dev/choices' and shell.developer:
+                        return self.send_json(shell.developer.choices())
                     if url.path == '/news':
                         return self.send_json(shell.news.get(fresh=q.get('fresh') == ['1']))
                     if url.path == '/guides/readme':
@@ -1202,12 +1633,18 @@ class Shell:
                         return self.send_json(shell.news.mark_seen())
                     if self.path == '/updates/apply' and shell.updates:
                         return self.send_json({'notice': shell.updates.apply()})
+                    if self.path in ('/dev/apply', '/dev/reset') and shell.developer:
+                        n = int(self.headers.get('Content-Length') or 0)
+                        body = json.loads(self.rfile.read(min(n, 65536)) or b'{}') if self.path == '/dev/apply' else {}
+                        return self.send_json({'notice': shell.developer.apply(body, shell.runtime)})
                     if self.path == '/updates/clear' and shell.updates:
                         n = int(self.headers.get('Content-Length') or 0)
                         body = json.loads(self.rfile.read(min(n, 8192)) or b'{}')
                         shell.updates.clear(body.get('key', ''))
                         return self.send_json({})
                     return self.send(HTTPStatus.NOT_FOUND, 'not found', 'text/plain')
+                except ValueError as e:
+                    return self.send_json({'error': str(e)}, HTTPStatus.BAD_REQUEST)
                 except LaunchError as e:
                     return self.send_json({'error': str(e)}, HTTPStatus.BAD_GATEWAY)
                 except Exception as e:
@@ -1238,18 +1675,18 @@ def page(msg, small=DISCLAIMER):
 
 def prepare_and_start(args, runtime, data, log, status):
     """Framework, then server, then the app's page. Returns (server, the page's url, notice)."""
-    frameworks = None
-    if args.framework:
-        framework, notice = os.path.abspath(args.framework), None
-    else:
-        frameworks = Frameworks(data, log)
-        framework, notice = frameworks.prepare(runtime.info, status)
+    developer = Developer(data, log, args)
+    if developer.label():
+        log(f'developer sources: {developer.label()}')
+    framework, frameworks, notice = developer.framework(runtime, status)
     status('Starting the Mod Matrix...')
-    server = Server(runtime, framework, data, log, args.repos_url)
+    server = Server(runtime, framework, data, log, developer.repos_url())
     matrix_url = server.start()
     updates = Updates(server, frameworks, log)
     threading.Thread(target=updates.snapshot, daemon=True).start()
-    server.shell = Shell(matrix_url, data, log, server.fresh_options, updates)
+    server.shell = Shell(matrix_url, data, log, server.fresh_options, updates, developer, runtime)
+    developer.server, developer.updates, developer.shell = server, updates, server.shell
+    server.shell.set_framework(frameworks)
     return server, server.shell.start(), notice
 
 

@@ -10,7 +10,8 @@ DEVELOPER = 'remixed123'
 # DISCLAIMER say the same: tests/test_launcher.py checks)
 CREDIT = f'The Mod Matrix and perkons-re are by kiteless. Desktop app by {DEVELOPER}.'
 DISCLAIMER = ('Unofficial. Not affiliated with or endorsed by Erica Synths. Modded firmware is '
-              'flashed entirely at your own risk.')
+              'flashed entirely at your own risk. Reflash the official firmware back on the Perkons '
+              'before contacting Erica Synths support.')
 ICON = {'darwin': 'assets/icon.icns', 'win32': 'assets/icon.ico'}.get(sys.platform)
 import os
 ICON = ICON if ICON and os.path.exists(ICON) else None

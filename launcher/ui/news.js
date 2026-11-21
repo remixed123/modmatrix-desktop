@@ -1,6 +1,8 @@
 /* WHAT'S NEW tab: the recent changes of the Mod Matrix (perkons-re) and every mod, from the
  * launcher's /news (GitHub's change feed of each mod's folder, kept for offline use). Changes the
- * person hasn't marked as seen are NEW; MARK ALL AS SEEN marks them (/news/seen). This tab is the
+ * person hasn't marked as seen are NEW; MARK ALL AS SEEN marks them (/news/seen). Once they've
+ * built a firmware in the Mod Matrix, NEW is only what changed in that build's mods (and the Mod
+ * Matrix) since: "since your build on ..." instead of "since you last looked". This tab is the
  * one place for the mods' changes: it tells the rest of the page with a "pmm-news" event, for the
  * tab's count and one line in the updates panel (updates.js). */
 "use strict";
@@ -23,6 +25,10 @@ const whatsnew = (() => {
     return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "long", year });
   };
   const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
+  /* "your build on 12 November" or "you last looked (12 November)" */
+  const sinceWhat = (i) => i.build
+    ? `your build on ${new Date(i.build.when).toLocaleDateString(undefined, { day: "numeric", month: "long" })}`
+    : `you last looked (${sinceText(i.since)})`;
 
   /* what's new, in short: for the tab's count, the updates panel's line and the summary box */
   function info() {
@@ -34,7 +40,7 @@ const whatsnew = (() => {
       const n = it.changes.filter((c) => c.new).length;
       if (n) { changed.push({ title: it.title, n, kind: it.kind }); count += n; }
     }
-    return { count, changed, added, removed: data.removed || [], since: data.since,
+    return { count, changed, added, removed: data.removed || [], since: data.since, build: data.build || null,
              any: Boolean(count || added.length || (data.removed || []).length) };
   }
 
@@ -57,16 +63,22 @@ const whatsnew = (() => {
     if (!i) return;
     if (i.any) {
       const d = mk("div", "prelim news-since");
-      d.append(mk("strong", "", `Since you last looked (${sinceText(i.since)}):`));
+      d.append(mk("strong", "", `Since ${sinceWhat(i)}:`));
       const ul = mk("ul");
       for (const c of i.changed) ul.append(mk("li", "", `${c.title}: ${c.n} ${c.n === 1 ? "change" : "changes"}`));
       for (const t of i.added) ul.append(mk("li", "", `New: ${t}`));
       for (const t of i.removed) ul.append(mk("li", "", `No longer offered: ${t}`));
-      d.append(ul, mk("p", "", "If any of these are in the firmware on your Pērkons, build it again in the Mod Matrix "
-        + "and install it to get them. MARK ALL AS SEEN when you're done."));
+      d.append(ul, mk("p", "", (i.build
+        ? "To get the changes, build your firmware again in the Mod Matrix and install it. "
+        : "If any of these are in the firmware on your Pērkons, build it again in the Mod Matrix and install it to get them. ")
+        + "MARK ALL AS SEEN when you're done."));
       box.append(d);
     } else {
-      box.append(mk("p", "data-note", `Nothing new since you last looked (${sinceText(i.since)}).`));
+      box.append(mk("p", "data-note", `Nothing new since ${sinceWhat(i)}.`));
+    }
+    if (i.build) {
+      box.append(mk("p", "data-note", `Your build: ${i.build.mods.length ? i.build.mods.join(", ") : "no mods"}. `
+        + "Changes to other mods aren't marked NEW."));
     }
     if (data.offline && data.offline.length) {
       box.append(mk("p", "data-note offline-note", `Couldn't reach GitHub for: ${data.offline.join(", ")}.`));
@@ -94,7 +106,7 @@ const whatsnew = (() => {
     const rows = [...bySha.values()];
     rows.sort((a, b) => (a.c.date < b.c.date ? 1 : a.c.date > b.c.date ? -1 : 0));
     if (!rows.length) {
-      out.append(mk("p", "data-note", onlyNew ? "Nothing new here since you last looked." : "No changes to show."));
+      out.append(mk("p", "data-note", onlyNew ? `Nothing new here since ${sinceWhat(info())}.` : "No changes to show."));
       return;
     }
     let lastDay = null;
@@ -188,7 +200,7 @@ const whatsnew = (() => {
   load();                                                // in the background: the tab's count and the button
 
   return {
-    load, markSeen, info,
+    load, markSeen, info, sinceWhat,
     shown() { if (Date.now() - loadedAt > 10 * 60 * 1000) load(); },
   };
 })();

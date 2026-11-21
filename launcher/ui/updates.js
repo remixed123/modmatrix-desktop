@@ -29,7 +29,6 @@
   let seen = null;                          // the finding the person has cleared: not flagged again
   let busy = false;
   let news = null;                          // what's new since the person last looked (news.js), or null
-  const sinceText = (secs) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long" });
 
   /* its tooltip (tips.js) says how long since the app got the latest */
   const ago = (t) => {
@@ -163,7 +162,7 @@
     // the mods' changes: one line, the list is on WHAT'S NEW
     if (news) {
       const n = news.count + news.added.length + news.removed.length;
-      const p = node("p", "news-line", `${n} ${n === 1 ? "change" : "changes"} to the mods since you last looked (${sinceText(news.since)}). `);
+      const p = node("p", "news-line", `${n} ${n === 1 ? "change" : "changes"} to the mods since ${whatsnew.sinceWhat(news)}. `);
       const see = node("a", "", "See What's New");
       see.href = "#";
       see.addEventListener("click", (e) => { e.preventDefault(); close(); showView("news"); });

@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+import urllib.request
 import zipfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'launcher'))
@@ -435,6 +436,8 @@ class TestNews(unittest.TestCase):
     def fetch(self, url, accept=None, timeout=None):
         if self.down or url not in self.feeds:
             raise OSError('down')
+        if isinstance(self.feeds[url], Exception):
+            raise self.feeds[url]
         return self.feeds[url]
 
     def new(self, fresh=True):
@@ -491,6 +494,94 @@ class TestNews(unittest.TestCase):
     def test_unsafe_folders_are_skipped(self):
         self.guides.list = [dict(self.guides.list[0], dir='../x'), dict(self.guides.list[0], repo='bad repo')]
         self.assertEqual([f['key'] for f in self.news.feeds()], [L.FRAMEWORK_REPO])
+
+
+class FakeFrameworks:
+    repo = L.FRAMEWORK_REPO
+
+    def __init__(self, sha):
+        self.sha = sha
+
+    def current(self):
+        return (self.sha, '/x')
+
+
+class TestNewsSinceTheBuild(unittest.TestCase):
+    """Once a firmware is built (the Mod Matrix's /api/builds), NEW = what changed in the build's
+    mods and perkons-re since it, by the feeds at the commits it was made from."""
+    BUILT, FW1, FW2 = 'b' * 40, 'c' * 40, 'd' * 40
+
+    set, fetch, new, tearDown = TestNews.set, TestNews.fetch, TestNews.new, TestNews.tearDown
+
+    def setUp(self):
+        TestNews.setUp(self)
+        self.guides.matrix_url = 'http://127.0.0.1:1/'
+        self.guides.list.append({'id': 'r/m:voice-k', 'title': 'Kick Lab', 'kind': 'engine', 'repo': 'r/m',
+                                 'ref': 'main', 'dir': 'voice-k', 'author': 'r'})
+        self.set('voice-k', ('k100000', '2026-11-10T00:00:00Z', 'kick'))
+        self.news.frameworks = FakeFrameworks(self.FW1)
+        self.news.note_framework()
+
+    def build(self, when=None):
+        import datetime
+        when = when or datetime.datetime.now(datetime.timezone.utc).isoformat()
+        self.feeds['http://127.0.0.1:1/api/builds'] = json.dumps({'builds': [{
+            'when': when, 'version': '1.3.0', 'tag': 'mm-ak',
+            'mods': [{'id': 'r/m:voice-a', 'title': 'AKORDS', 'repo': 'r/m', 'ref': 'main', 'commit': self.BUILT}]}]}).encode()
+
+    def at(self, folder, sha, *commits):
+        url = (L.REF_FEED_URL.format(repo=L.FRAMEWORK_REPO, ref=sha) if folder is None
+               else L.FEED_URL.format(repo='r/m', ref=sha, path=folder))
+        self.feeds[url] = atom(*commits)
+
+    def test_changes_since_the_build(self):
+        self.new()                                                    # first run: all seen
+        self.build()                                                  # built after (with FW1)
+        self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.at(None, self.FW1, ('f100000', '2026-11-09T00:00:00Z', 'framework change'))
+        self.set('voice-a', ('a200000', '2026-11-12T00:00:00Z', 'since'), ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.set('voice-k', ('k200000', '2026-11-12T00:00:00Z', 'kick again'), ('k100000', '2026-11-10T00:00:00Z', 'kick'))
+        self.set(None, ('f200000', '2026-11-12T00:00:00Z', 'fw since'), ('f100000', '2026-11-09T00:00:00Z', 'framework change'))
+        new, r = self.new()
+        self.assertEqual(new, {'Mod Matrix (perkons-re)': ['f200000'], 'Akords': ['a200000'], 'Kick Lab': []},
+                         'Kick Lab is not in the build')
+        self.assertEqual(r['build']['mods'], ['AKORDS'])
+        self.news.mark_seen()
+        self.assertEqual(self.new()[0]['Akords'], [], 'marked as seen after the build')
+
+    def test_seen_before_the_build_doesnt_hide_its_changes(self):
+        self.set('voice-a', ('a200000', '2026-11-12T00:00:00Z', 'since'), ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.new()                                                    # first run: a200000 counts as seen
+        self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.build()
+        self.assertEqual(self.new()[0]['Akords'], ['a200000'])
+
+    def test_the_build_is_kept_when_the_mod_matrix_cant_say(self):
+        self.new()
+        self.build('2099-01-01T00:00:00+00:00')
+        self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.new()
+        del self.feeds['http://127.0.0.1:1/api/builds']               # stopped, or not answering
+        self.assertEqual(self.new()[1]['build']['mods'], ['AKORDS'])
+
+    def test_a_perkons_re_without_build_records_drops_the_kept_build(self):
+        self.new()
+        self.build()
+        self.at('voice-a', self.BUILT, ('a100000', '2026-11-10T00:00:00Z', 'first'))
+        self.assertEqual(self.new()[1]['build']['mods'], ['AKORDS'])
+        self.feeds['http://127.0.0.1:1/api/builds'] = urllib.error.HTTPError(
+            'http://127.0.0.1:1/api/builds', 404, 'Not Found', {}, None)  # back to an older perkons-re
+        self.assertIsNone(self.new()[1]['build'], 'since you last looked again')
+        del self.feeds['http://127.0.0.1:1/api/builds']               # and then not answering: still none
+        self.assertIsNone(self.new()[1]['build'])
+
+    def test_a_build_is_matched_with_the_perkons_re_it_was_made_with(self):
+        self.build('2001-01-01T00:00:00+00:00')
+        self.assertIsNone(self.news.build()['framework'])
+        self.build()
+        self.news.frameworks = FakeFrameworks(self.FW2)               # UPDATE NOW: after the build
+        self.news.note_framework()
+        self.assertEqual(self.news.build()['framework'], {'repo': L.FRAMEWORK_REPO, 'commit': self.FW1})
 
 
 class TestShell(unittest.TestCase):
@@ -640,7 +731,8 @@ class TestUpdates(unittest.TestCase):
         L.FETCH = self.web
         L.REDIRECT = lambda url: f'https://github.com/{L.APP_REPO}/releases/tag/v{L.APP_VERSION}'
         self.server = FakeServer({'options': [dict(o) for o in OLD], 'failed': []})
-        fw = type('F', (), {'current': lambda self: (SHA1, '/fw/old'),
+        fw = type('F', (), {'repo': L.FRAMEWORK_REPO, 'ref': L.FRAMEWORK_REF,
+                            'current': lambda self: (SHA1, '/fw/old'),
                             'prepare': lambda self, info: ('/fw/new', None)})()
         self.up = L.Updates(self.server, fw, lambda msg: None)
         self.up.snapshot()
@@ -751,6 +843,240 @@ class TestUpdates(unittest.TestCase):
         L.REDIRECT = lambda url: (_ for _ in ()).throw(OSError('offline'))
         r = self.up.check()
         self.assertEqual((r['this_app']['latest'], r['failed'][0][0]), (None, 'this app'))
+
+
+
+SHA3 = 'c' * 40
+
+
+class DevWeb:
+    """GitHub for the developer settings: branches of a few repos, codeload zips, the official repo list."""
+    def __init__(self):
+        self.branches = {L.FRAMEWORK_REPO: {'main': SHA1, 'voice-akords-fw': SHA3}, R: {'main': SHA1, 'feature/x': SHA2},
+                         K: {'main': SHA1}, 'remixed123/perkons-re': {'main': SHA1, 'voice-x': SHA3}}
+        self.official = {'repos': [{'repo': K, 'default': True}, {'repo': R, 'ref': 'main', 'note': 'Glenn'}]}
+        self.down, self.log = False, []
+
+    def __call__(self, url, accept=None, timeout=None):
+        self.log.append(url)
+        if self.down:
+            raise OSError('network down')
+        if url == L.OFFICIAL_REPOS_URL:
+            return json.dumps(self.official).encode()
+        if url == L.COMMIT_URL:
+            return self.branches[L.FRAMEWORK_REPO]['main'].encode()
+        for repo, refs in self.branches.items():
+            if url == L.GIT_REFS_URL.format(repo=repo):
+                return ''.join(f'{len(sha) + len(ref) + 17:04x}{sha} refs/heads/{ref}\n' for ref, sha in refs.items()).encode() + b'0000'
+            for sha in refs.values():
+                if url == L.REPO_ZIP_URL.format(repo=repo, sha=sha):
+                    return framework_zip(sha)
+        raise OSError(f'404 {url}')
+
+
+class TestDeveloper(unittest.TestCase):
+    def setUp(self):
+        self.data = tempfile.mkdtemp(prefix='pmm-dev-')
+        self.web, self.saved = DevWeb(), L.FETCH
+        L.FETCH = self.web
+        self.args = type('A', (), {'framework': None, 'repos_url': None})()
+        self.dev = L.Developer(self.data, lambda msg: None, self.args)
+        self.runtime = type('R', (), {'info': RUNTIME})()
+
+    def tearDown(self):
+        L.FETCH = self.saved
+        shutil.rmtree(self.data, ignore_errors=True)
+
+    def test_the_panels_choices(self):
+        s = self.dev.validate({'framework': 'voice-akords-fw', 'repos': {R: 'feature/x', K: '', 'x/y': '-'}})
+        self.assertEqual(s, {'framework': {'repo': L.FRAMEWORK_REPO, 'ref': 'voice-akords-fw'},
+                             'repos': [{'repo': R, 'ref': 'feature/x'}], 'off': ['x/y']})
+        self.assertEqual(self.dev.validate({'framework': 'main', 'repos': {K: '', R: ''}}), L.Developer.empty())
+        for bad in ({'framework': '../x'}, {'repos': {'not a repo': 'main'}}, {'repos': {R: 'a b'}}):
+            with self.assertRaises(ValueError, msg=bad):
+                self.dev.validate(bad)
+
+    def test_saved_until_back_to_official(self):
+        self.assertEqual((self.dev.load(), self.dev.label()), (L.Developer.empty(), ''))
+        s = self.dev.validate({'framework': 'voice-akords-fw', 'repos': {R: 'feature/x', K: '-'}})
+        self.dev.save(s)
+        self.assertEqual(L.Developer(self.data, lambda msg: None, self.args).load(), s)
+        self.assertEqual(self.dev.label(), f'perkons-re: voice-akords-fw; mod repos: {R} feature/x, {K} left out')
+        self.dev.save(L.Developer.empty())
+        self.assertFalse(os.path.exists(self.dev.path))
+        self.assertEqual(self.dev.label(), '')
+
+    def test_the_choices_list_every_branch_of_registered_repos(self):
+        self.dev.save(self.dev.validate({'framework': 'voice-akords-fw', 'repos': {R: 'feature/x'}}))
+        c = self.dev.choices()
+        # kiteless's perkons-re, then R's owner's (registered); K's owner is kiteless: no second one
+        self.assertEqual([(r['repo'], r['branches']) for r in c['framework']['repos']],
+                         [(L.FRAMEWORK_REPO, ['main', 'voice-akords-fw']), ('remixed123/perkons-re', ['main', 'voice-x'])])
+        self.assertEqual(c['framework']['chosen'], {'repo': L.FRAMEWORK_REPO, 'ref': 'voice-akords-fw'})
+        self.assertEqual([(r['repo'], r['official'], r['branches'], r['chosen']) for r in c['repos']],
+                         [(K, 'main', ['main'], ''), (R, 'main', ['feature/x', 'main'], 'feature/x')])
+        self.assertEqual(c['repos'][1]['note'], 'Glenn')
+        self.web.official['repos'].append({'repo': 'someone/their-mods'})    # no perkons-re of theirs: not offered
+        self.assertEqual(len(self.dev.choices()['framework']['repos']), 2)
+        self.web.down = True                               # offline, the list from last time: no branches
+        c = self.dev.choices()
+        self.assertEqual((c['repos'][1]['branches'], bool(c['repos'][1]['failed'])), ([], True))
+        os.remove(self.dev.official_copy)
+        with self.assertRaises(L.LaunchError):
+            self.dev.choices()
+
+    def test_the_flags_take_precedence(self):
+        self.dev.save(self.dev.validate({'repos': {R: 'feature/x'}}))
+        self.args.repos_url = 'https://example.com/repos.json'
+        self.assertEqual(self.dev.repos_url(), self.args.repos_url)
+        self.assertIn('(--repos-url)', self.dev.label())
+
+    def test_kiteless_list_with_the_chosen_branches(self):
+        self.dev.save(self.dev.validate({'repos': {R: 'feature/x', 'someone/their-mods': 'dev'}}))
+        url = self.dev.repos_url()
+        self.assertTrue(url.startswith('file:'))
+        with urllib.request.urlopen(url) as f:          # what the framework's repos.config() does with it
+            got = json.load(f)['repos']
+        self.assertEqual(got, [{'repo': K, 'default': True},
+                               {'repo': R, 'ref': 'feature/x', 'note': 'Glenn', 'default': True}])   # someone's: not listed
+        self.web.down = True                            # offline: the official list from last time
+        with open(self.dev.list_path, 'w') as f:
+            f.write('{}')
+        self.dev.repos_url()
+        with open(self.dev.list_path) as f:
+            self.assertEqual(len(json.load(f)['repos']), 2)
+
+    def test_a_repo_left_out(self):
+        self.dev.save(self.dev.validate({'repos': {K: '-'}}))
+        with urllib.request.urlopen(self.dev.repos_url()) as f:
+            self.assertEqual(json.load(f), {'repos': [{'repo': R, 'ref': 'main', 'note': 'Glenn'}]})
+        with self.assertRaises(ValueError):                # not all of them
+            self.dev.check(self.dev.validate({'repos': {K: '-', R: '-'}}))
+        self.assertIsNone(L.Developer(tempfile.mkdtemp(), print, self.args).repos_url())   # nothing set: official
+
+    def test_only_what_kiteless_has_registered(self):
+        with self.assertRaises(ValueError) as e:
+            self.dev.check(self.dev.validate({'repos': {'someone/their-mods': 'dev'}}))
+        self.assertIn("not in kiteless's mod repo list", str(e.exception))
+        with self.assertRaises(ValueError):
+            self.dev.check(self.dev.validate({'repos': {'someone/their-mods': '-'}}))
+        # saved before (or edited by hand): left out, the official list used
+        self.dev.save({'framework': None, 'repos': [{'repo': 'someone/their-mods', 'ref': 'dev'}], 'off': []})
+        self.assertIsNone(self.dev.repos_url())
+        # another perkons-re in the saved file: ignored
+        self.web.down = True                               # the list can't be read: nothing is taken as listed
+        os.remove(self.dev.official_copy)
+        with self.assertRaises(L.LaunchError):
+            self.dev.check(self.dev.validate({'repos': {R: 'feature/x'}}))
+
+    def test_a_registered_owners_perkons_re(self):
+        fork = {'repo': 'remixed123/perkons-re', 'ref': 'voice-x'}
+        s = self.dev.validate({'framework': fork})
+        self.assertEqual(s['framework'], fork)
+        self.assertEqual(self.dev.validate({'framework': {**fork, 'ref': 'main'}})['framework']['ref'], 'main')  # its main: not official
+        self.dev.check(s)
+        self.dev.save(s)
+        self.assertEqual(self.dev.label(), 'perkons-re: remixed123/perkons-re voice-x')
+        path, fws, _ = self.dev.framework(self.runtime)
+        self.assertEqual((path, fws.repo), (os.path.join(self.data, 'framework-dev', SHA3), 'remixed123/perkons-re'))
+        # someone kiteless doesn't list
+        other = self.dev.validate({'framework': {'repo': 'someone/perkons-re', 'ref': 'main'}})
+        with self.assertRaises(ValueError):
+            self.dev.check(other)
+        self.dev.save(other)
+        self.assertEqual(self.dev.framework(self.runtime)[1].repo, L.FRAMEWORK_REPO)    # saved: ignored, official
+        with self.assertRaises(ValueError):
+            self.dev.validate({'framework': {'repo': 'remixed123/perkons-re-mods', 'ref': 'main'}})   # not a perkons-re
+
+    def test_a_framework_branch_goes_in_its_own_folder(self):
+        self.dev.save(self.dev.validate({'framework': 'voice-akords-fw'}))
+        path, fws, notice = self.dev.framework(self.runtime)
+        self.assertEqual(path, os.path.join(self.data, 'framework-dev', SHA3))
+        self.assertEqual((fws.repo, fws.ref, notice), (L.FRAMEWORK_REPO, 'voice-akords-fw', None))
+        self.assertNotIn(L.COMMIT_URL, self.web.log)
+        # another branch: not the one downloaded before, even offline
+        other = L.Frameworks(self.data, lambda msg: None, L.FRAMEWORK_REPO, 'feature/y')
+        self.assertIsNone(other.current())
+        self.web.down = True
+        with self.assertRaises(L.LaunchError):
+            other.prepare(RUNTIME)
+        # the official one is untouched by it
+        self.assertFalse(os.path.exists(os.path.join(self.data, 'framework', 'current.json')))
+
+    def test_a_framework_branch_asking_for_other_packages_is_still_used(self):
+        fws = L.Frameworks(self.data, lambda msg: None, L.FRAMEWORK_REPO, 'voice-akords-fw')
+        fws.prepare(RUNTIME)
+        self.web.branches[L.FRAMEWORK_REPO]['voice-akords-fw'] = SHA2
+        _, notice = fws.prepare({'packages': {'capstone': '9', 'unicorn': '2.1.4'}})
+        self.assertEqual(fws.current()[0], SHA2)
+        self.assertIn('capstone', notice)
+
+    def test_a_deleted_branch_is_refused_before_anything_restarts(self):
+        with self.assertRaises(ValueError) as e:
+            self.dev.check(self.dev.validate({'repos': {R: 'nope'}}))
+        self.assertIn('no branch nope', str(e.exception))
+        self.dev.check(self.dev.validate({'framework': 'voice-akords-fw', 'repos': {R: 'feature/x'}}))
+
+    def test_apply_restarts_and_goes_back_if_it_fails(self):
+        class Server:
+            framework, repos_url, fail = '/fw/official', None, False
+
+            def __init__(self):
+                self.started = []
+
+            def restart(self, framework):
+                self.started.append((framework, self.repos_url))
+                if self.fail and framework != '/fw/official':
+                    raise L.LaunchError('did not start')
+                self.framework = framework
+        server = Server()
+        up = type('U', (), {'lock': __import__('threading').Lock(), 'snapshot': lambda self: None,
+                            'frameworks': None, 'last': 1, 'flag': 1})()
+        self.dev.server, self.dev.updates = server, up
+        self.dev.apply({'framework': 'voice-akords-fw', 'repos': {R: 'feature/x'}}, self.runtime)
+        self.assertEqual(server.framework, os.path.join(self.data, 'framework-dev', SHA3))
+        self.assertTrue(server.repos_url.startswith('file:'))
+        self.assertEqual((up.frameworks.ref, up.last, up.flag), ('voice-akords-fw', None, None))
+        self.assertTrue(self.dev.label())
+        # that perkons-re won't start: the settings before stay
+        server.framework, server.repos_url, server.fail = '/fw/official', None, True
+        self.dev.save(L.Developer.empty())
+        with self.assertRaises(L.LaunchError):
+            self.dev.apply({'framework': 'voice-akords-fw'}, self.runtime)
+        self.assertEqual(self.dev.load(), L.Developer.empty())
+        self.assertEqual(server.started[-1], ('/fw/official', None))
+
+
+class TestDeveloperFollowers(unittest.TestCase):
+    def test_guides_and_news_follow_the_framework(self):
+        d = tempfile.mkdtemp()
+        try:
+            shell = L.Shell(MATRIX, d, lambda msg: None)
+            fws = type('F', (), {'repo': L.FRAMEWORK_REPO, 'ref': 'voice-akords-fw', 'current': lambda self: None})()
+            shell.set_framework(fws)
+            saved, L.FETCH = L.FETCH, FakeWeb()
+            try:
+                g = shell.guides.listing()
+                feed = shell.news.feeds()[0]
+            finally:
+                L.FETCH = saved
+            self.assertEqual((g[0]['repo'], g[0]['ref']), (L.FRAMEWORK_REPO, 'voice-akords-fw'))
+            self.assertEqual(feed['url'], f'https://github.com/{L.FRAMEWORK_REPO}/commits/voice-akords-fw.atom')
+            shell.set_framework(None)
+            self.assertEqual(shell.guides.framework, (L.FRAMEWORK_REPO, L.FRAMEWORK_REF))
+        finally:
+            shutil.rmtree(d)
+
+    def test_the_panel_is_on_the_page(self):
+        d = tempfile.mkdtemp()
+        try:
+            shell = L.Shell(MATRIX, d, lambda msg: None, developer=L.Developer(d, lambda msg: None))
+            page = shell.index()
+            self.assertIn('src="/ui/dev.js"', page)
+            self.assertIn('id="about-version"', page)
+            self.assertNotIn('{{', page)
+        finally:
+            shutil.rmtree(d)
 
 
 if __name__ == '__main__':

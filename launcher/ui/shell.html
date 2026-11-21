@@ -47,8 +47,9 @@
 </div>
 <div id="tip-news" class="tip" role="tooltip" hidden>
   <strong>What has changed in the mods and engines.</strong>
-  Every mod's and engine's recent changes, newest first. The ones that arrived since you last
-  looked are marked NEW: to get them on your Pērkons, build your firmware again and install it.
+  Every mod's and engine's recent changes, newest first. The ones that arrived since your last
+  build (or since you last looked, before your first build) are marked NEW: to get them on your
+  Pērkons, build your firmware again and install it.
 </div>
 <div id="tip-help" class="tip" role="tooltip" hidden>
   <strong>When something isn't right.</strong>
@@ -75,24 +76,27 @@
     <img src="/ui/icon-128.png" alt="" width="64" height="64">
     <div>
       <h2 id="about-title">Perkons Mod Matrix Desktop</h2>
-      <p class="muted">Version {{VERSION}} &middot; {{BUILD}}</p>
+      <p class="muted" id="about-version">Version {{VERSION}} &middot; {{BUILD}}</p>
     </div>
   </div>
   <h3>Huge thanks to kiteless</h3>
-  <p>The Mod Matrix and perkons-re, the framework that turns mods into firmware, are
-    <strong>kiteless</strong>'s work. None of this exists without them.</p>
+  <p>The Mod Matrix and perkons-re, the magic behind turning mods into firmware, are the work of
+    <strong>kiteless</strong> &mdash; the brains behind this operation. None of this would exist
+    without them.</p>
   <p class="links"><a href="https://github.com/kiteless/perkons-re" target="_blank" rel="noopener">kiteless/perkons-re</a>
     <a href="https://github.com/kiteless/perkons-re-mods" target="_blank" rel="noopener">kiteless/perkons-re-mods</a></p>
-  <p>Every mod and engine belongs to its author. Respect to them for the code and the creativity
-    they share.</p>
+  <p>Every mod and engine belongs to its creator. Huge respect to everyone sharing their code,
+    creativity and passion for the Perkons.</p>
   <h3>This app</h3>
-  <p>Built by <strong>{{DEVELOPER}}</strong>. The Mod Matrix in its own window, toolchain included,
-    plus user guides, processor &amp; memory, what's new, troubleshooting and update checks.</p>
+  <p>Built by <strong>{{DEVELOPER}}</strong>. The Mod Matrix gets its own window, complete with
+    toolchain, user guides, processor &amp; memory info, what's new, troubleshooting and update
+    checks. Less fiddling, more modding, more music.</p>
   <p class="links"><a href="https://github.com/{{APP_REPO}}" target="_blank" rel="noopener">{{APP_REPO}}</a>
     <a href="https://github.com/{{APP_REPO}}/releases" target="_blank" rel="noopener">All versions</a></p>
   <h3>And the Pērkons</h3>
-  <p>All gratitude to <strong>Ģirts</strong> and everyone at <strong>Erica Synths</strong> for
-    building such an incredible sounding and tactile instrument.</p>
+  <p>Massive thanks to <strong>Ģirts</strong> and everyone at <strong>Erica Synths</strong> for
+    creating such an incredible sounding, gloriously hands-on instrument. We just can't resist
+    tinkering with it 🤓</p>
   <p class="warn">{{DISCLAIMER}}</p>
   <h3>Licences</h3>
   <p class="muted">This app: MIT. perkons-re, downloaded when the app starts: MIT. Inside the app: the Arm
@@ -102,6 +106,34 @@
   <div id="about-actions">
     <button type="button" id="about-check">CHECK FOR UPDATES</button>
     <button type="button" id="about-close" class="primary">CLOSE</button>
+  </div>
+</section>
+
+<section id="dev" role="dialog" aria-labelledby="dev-title" hidden>
+  <h2 id="dev-title">Developer</h2>
+  <p class="muted">Test a branch before it's merged. Pick a repo and a branch, then press APPLY AND
+    RESTART.</p>
+  <p class="muted">Only repos registered with kiteless are listed. Your choice is kept until you press
+    BACK TO OFFICIAL.</p>
+  <h3>perkons-re</h3>
+  <div class="pair">
+    <select id="dev-framework-repo" aria-label="perkons-re repo"></select>
+    <select id="dev-framework" aria-label="perkons-re branch"></select>
+  </div>
+  <h3>Mod repo</h3>
+  <div class="pair">
+    <select id="dev-mods-repo" aria-label="Mod repo"></select>
+    <select id="dev-mods" aria-label="Mod repo branch"></select>
+  </div>
+  <p id="dev-mods-note" class="note"></p>
+  <p class="muted">The other mod repos stay on their official branch. The branch you pick needs an
+    up-to-date perkons-mods.json (run make manifest).</p>
+  <p id="dev-flags" class="warn" hidden></p>
+  <p id="dev-status" aria-live="polite"></p>
+  <div id="dev-actions">
+    <button type="button" id="dev-reset">BACK TO OFFICIAL</button>
+    <button type="button" id="dev-cancel">CANCEL</button>
+    <button type="button" id="dev-apply" class="primary">APPLY AND RESTART</button>
   </div>
 </section>
 
@@ -239,5 +271,6 @@
 <script src="/ui/tips.js"></script>
 <script src="/ui/updates.js"></script>
 <script src="/ui/about.js"></script>
+<script src="/ui/dev.js"></script>
 </body>
 </html>
