@@ -1,4 +1,4 @@
-<!-- pmm:page format=1 updated=2026-11-19 -->
+<!-- pmm:page format=1 updated=2026-11-20 -->
 
 # Processor and memory
 
@@ -39,15 +39,16 @@ the planner below to check a kit.
 
 ## Memory <!-- toc: Memory -->
 
-The Pērkons has three blocks of memory that mods can use. The **MEMORY** pane in the
-Mod Matrix has a meter for each. Grey is the firmware's own part, green is what your ticked mods
-take, and FREE is what's left.
+The Pērkons has three blocks of memory that mods can use, and room in its flash for the mods'
+code. The **MEMORY** pane in the Mod Matrix has a meter for each. Grey is the firmware's own
+part, green is what your ticked mods take, and FREE is what's left.
 
 | meter | what it holds | room for mods |
 |---|---|---|
 | **MAIN** | Fast memory on the panel processor: effects, pages, and what mods keep while they run | about 64 KB |
 | **VOICE** | Memory on the sound processor: the engines' working memory, set aside for the engines from the start | about 76 KB |
 | **STORE** | Larger, a little slower: settings and data such as what mods save with your kits | about 111 KB |
+| **FLASH** | The mods' code, kept with the firmware. The meter is all 2 MB of flash; only the mods' two parts light up | 128 KB on the sound processor, 256 KB on the panel processor |
 
 - **A mod you can't tick** doesn't fit beside the ones already ticked. Untick another
   mod to make room.

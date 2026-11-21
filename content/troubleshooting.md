@@ -1,4 +1,4 @@
-<!-- pmm:page format=1 updated=2026-11-19 -->
+<!-- pmm:page format=1 updated=2026-11-20 -->
 
 <!-- For writers: every entry needs a known source (a mod's README, the Mod Matrix's docs, this
      app's README, or something tested). Leave out anything unconfirmed until it is. Problems in
@@ -21,8 +21,8 @@
 
 ## A mod can't be ticked in the Mod Matrix <!-- toc: Can't tick a mod -->
 
-- **Not enough memory**: the MEMORY pane shows what the ticked mods take. Untick another mod to
-  make room.
+- **Not enough memory** (or **OUT OF CODE SPACE**): the MEMORY pane shows what the ticked mods
+  take. Untick another mod to make room.
 - **Two mods use the same buttons**: the Mod Matrix asks which one to keep. OK swaps them,
   CANCEL keeps the first.
 - **A mod changes what a stock button combination does**: the Mod Matrix tells you what changes
