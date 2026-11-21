@@ -1,6 +1,6 @@
 /* DEVELOPER: run the Mod Matrix on another perkons-re or offer mod repos at other branches,
  * to try work before it reaches main. Hidden on purpose: ABOUT, then Option-click (Alt-click on
- * Windows) the version line. Drop-downs only, a repo and its branch: perkons-re (kiteless's, or
+ * Windows) the version line, or click it five times quickly. Drop-downs only, a repo and its branch: perkons-re (kiteless's, or
  * that of someone with a mod repo in kiteless's list), and one mod repo from kiteless's list (the
  * others stay official), so only what kiteless has registered is used.
  * The launcher keeps the
@@ -118,7 +118,14 @@
     }
   }
 
-  $("about-version").addEventListener("click", (e) => { if (e.altKey) open(); });
+  /* Option/Alt-click, or five clicks within 2 s (Windows' web view doesn't always pass the Alt key
+   * to the page) */
+  let clicks = [];
+  $("about-version").addEventListener("click", (e) => {
+    const now = Date.now();
+    clicks = clicks.filter((t) => now - t < 2000).concat(now);
+    if (e.altKey || clicks.length >= 5) { clicks = []; open(); }
+  });
   $("dev-cancel").addEventListener("click", close);
   $("dev-apply").addEventListener("click", () =>
     send("/dev/apply", {

@@ -15,7 +15,7 @@ Everything it downloads or writes goes in the data folder (data_dir()), never in
 
 --framework and --repos-url are for testing: a local perkons-re checkout instead of the
 download, and a different mod repo list instead of the official one. The app's hidden DEVELOPER
-panel (ABOUT: Option-click, Alt-click on Windows, the version line) does the same from inside the
+panel (ABOUT: Option/Alt-click the version line, or click it five times) does the same from inside the
 app, from GitHub branches too (Developer, below); these flags take precedence over it.
 """
 import argparse
@@ -755,7 +755,7 @@ class Updates:
 
 # -- DEVELOPER: test a perkons-re or mod repo branch ---------------------------------------------
 #
-# Hidden: ABOUT, Option-click (Alt-click) the version line. A developer can run the Mod Matrix on
+# Hidden: ABOUT, Option/Alt-click the version line (or click it five times). A developer can run the Mod Matrix on
 # another branch of kiteless/perkons-re, and choose a branch for each mod repo (or leave one out).
 # Only what kiteless has registered: perkons-re itself and the mod repos in kiteless's repos.json,
 # chosen from drop-downs (any branch of them). Work stays in the one shared Mod Matrix and its
